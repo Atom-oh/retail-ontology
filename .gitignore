@@ -1,0 +1,7 @@
+.superpowers/
+node_modules/
+cdk.out/
+.env*
+*.pyc
+__pycache__/
+.DS_Store
