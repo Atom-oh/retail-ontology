@@ -1,0 +1,11 @@
+*.js
+!jest.config.js
+*.d.ts
+node_modules
+cdk.out
+*.log
+.cdk.staging
+.env
+.env.*
+!.env.example
+coverage/
