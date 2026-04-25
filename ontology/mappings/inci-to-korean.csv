@@ -1,0 +1,83 @@
+inci_name,korean_name,synonyms_ko,function_ko,concerns_ko,regulatory_class,wow_moment,verified,notes
+Water,정제수,물;정제수,기타,,일반,N,N,거의 모든 화장품의 베이스
+Hyaluronic Acid,히알루론산,히알루론산;수분;촉촉,보습,건조;수분부족,일반,Y,N,K-beauty 대표 보습성분
+Sodium Hyaluronate,소듐히알루로네이트,히알루론산나트륨;저분자히알루론산,보습,건조;수분부족,일반,Y,N,저분자형 침투성↑
+Glycerin,글리세린,글리세린;보습베이스,보습,건조,일반,N,N,
+Butylene Glycol,부틸렌글라이콜,부틸렌글라이콜,보습,건조,일반,N,N,용제 겸 보습제
+Ceramide NP,세라마이드엔피,세라마이드;장벽강화;세라마이드NP,보습,건조;민감성;장벽손상,일반,Y,N,피부장벽 핵심
+Ceramide AP,세라마이드에이피,세라마이드AP,보습,건조;민감성;장벽손상,일반,N,N,
+Ceramide EOP,세라마이드이오피,세라마이드EOP,보습,건조;장벽손상,일반,N,N,
+Squalane,스쿠알란,스쿠알란;식물성스쿠알란,보습,건조,일반,Y,N,식물성(올리브유래) 표기 강조
+Panthenol,판테놀,판테놀;프로비타민B5,진정,건조;자극;붉은기,일반,Y,N,
+Sodium PCA,소듐피씨에이,피씨에이소듐;PCA소듐,보습,건조,일반,N,N,
+Trehalose,트레할로스,트레할로스,보습,건조,일반,N,N,
+Beta-Glucan,베타글루칸,베타글루칸;귀리유래,진정,민감성;붉은기,일반,N,N,
+Aloe Barbadensis Leaf Extract,알로에베라잎추출물,알로에베라;알로에추출물,진정,진정;수분부족;홍조,일반,Y,N,
+Snail Secretion Filtrate,달팽이분비물여과물,달팽이분비물;달팽이크림;스네일,진정,재생;흉터;여드름자국,일반,Y,N,K-beauty 시그니처
+Honey Extract,꿀추출물,꿀;프로폴리스,보습,건조;영양공급,일반,N,N,
+Niacinamide,나이아신아마이드,나이아신아마이드;비타민B3,미백,기미;잡티;칙칙함;색소침착,미백고시,Y,N,식약처 미백 고시 성분
+Arbutin,알부틴,알부틴,미백,기미;잡티;색소침착,미백고시,Y,N,식약처 미백 고시 성분
+Alpha-Arbutin,알파알부틴,알파알부틴,미백,기미;색소침착,일반,N,N,식약처 고시는 알부틴(베타) 기준
+Ascorbic Acid,아스코빅애씨드,비타민C;아스코르빅애씨드;순수비타민C,미백,기미;칙칙함;광노화,미백고시,Y,N,순수형은 불안정 - 시연시 안정화형 우선
+Ascorbyl Glucoside,아스코빌글루코사이드,아스코빌글루코사이드;비타민C유도체,미백,기미;칙칙함,미백고시,Y,N,식약처 미백 고시 성분
+Ethyl Ascorbic Acid,에칠아스코빅애씨드,에칠아스코빅애씨드;비타민C유도체,미백,기미;칙칙함,미백고시,Y,N,식약처 미백 고시 성분
+Tranexamic Acid,트라넥사믹애씨드,트라넥사믹애씨드;트라넥삼산,미백,기미;색소침착,일반,N,N,의약품 영역 표기 검수 필요
+Glutathione,글루타치온,글루타치온,미백,기미;칙칙함,일반,N,N,
+Licorice Root Extract,감초뿌리추출물,감초추출물;감초;진정,진정,민감성;홍조;칙칙함,일반,N,N,
+Mulberry Extract,뽕나무추출물,뽕나무추출물;상백피,미백,기미,일반,N,N,
+Retinol,레티놀,레티놀;비타민A,주름개선,주름;탄력;광노화,주름개선고시,Y,N,식약처 주름개선 고시 성분
+Retinyl Palmitate,레티닐팔미테이트,레티닐팔미테이트,주름개선,주름;탄력,주름개선고시,N,N,식약처 주름개선 고시 성분
+Retinyl Acetate,레티닐아세테이트,레티닐아세테이트,주름개선,주름,주름개선고시,N,N,식약처 주름개선 고시 성분
+Adenosine,아데노신,아데노신,주름개선,주름;탄력,주름개선고시,Y,N,식약처 주름개선 고시 성분
+Bakuchiol,바쿠치올,바쿠치올;식물성레티놀,주름개선,주름;민감성,일반,Y,N,레티놀 대체 - 임산부 친화 시연 포인트
+Polypeptide-1,폴리펩타이드원,펩타이드;폴리펩타이드,주름개선,주름;탄력,일반,N,N,
+Acetyl Hexapeptide-8,아세틸헥사펩타이드-8,아르지렐린;아세틸헥사펩타이드,주름개선,주름;표정주름,일반,N,N,상품명 아르지렐린 더 익숙
+Ubiquinone,유비퀴논,코엔자임Q10;유비퀴논;코큐텐,항산화,주름;광노화,일반,N,N,
+sh-Oligopeptide-1,에스에이치-올리고펩타이드원,EGF;상피세포성장인자,주름개선,주름;재생,일반,N,N,
+Idebenone,이데베논,이데베논,항산화,주름;광노화,일반,N,N,
+Centella Asiatica Extract,병풀추출물,병풀;시카;센텔라,진정,민감성;홍조;자극;여드름자국,일반,Y,N,시카 카테고리 핵심 - 한국어 "시카"가 일상 표현
+Madecassoside,마데카소사이드,마데카소사이드;시카,진정,민감성;재생,일반,Y,N,병풀 활성성분
+Asiaticoside,아시아티코사이드,아시아티코사이드,진정,민감성;재생,일반,N,N,
+Asiatic Acid,아시아틱애씨드,아시아틱애씨드,진정,민감성,일반,N,N,
+Allantoin,알란토인,알란토인,진정,민감성;자극;재생,일반,N,N,
+Bisabolol,비사보롤,비사보롤;카모마일유래,진정,민감성;홍조,일반,N,N,
+Chamomile Flower Extract,카모마일꽃추출물,카모마일;캐모마일,진정,민감성;홍조,일반,N,N,
+Camellia Sinensis Leaf Extract,녹차잎추출물,녹차추출물;녹차;그린티,항산화,진정;피지조절,일반,Y,N,
+Artemisia Princeps Leaf Extract,쑥잎추출물,쑥추출물;쑥;무공해쑥,진정,민감성;진정,일반,Y,N,한국 토종 식물 강조
+Houttuynia Cordata Extract,어성초추출물,어성초;어성초추출물,진정,여드름;피지;진정,일반,N,N,
+Salicylic Acid,살리실릭애씨드,살리실산;BHA;유기각질제거,각질제거,여드름;블랙헤드;피지;각질,일반,Y,N,화장품 0.5% 이내 / 의약외품 별도
+Glycolic Acid,글라이콜릭애씨드,글리콜산;AHA,각질제거,각질;칙칙함;모공,일반,Y,N,
+Lactic Acid,락틱애씨드,젖산;AHA,각질제거,각질;건조각질,일반,N,N,
+Mandelic Acid,만델릭애씨드,만델릭산;PHA,각질제거,각질;민감성,일반,N,N,
+Citric Acid,시트릭애씨드,구연산;시트르산,각질제거,각질;pH조절,일반,N,N,주로 pH조절제
+Melaleuca Alternifolia Leaf Oil,티트리잎오일,티트리오일;티트리,진정,여드름;피지;염증,일반,Y,N,
+Propolis Extract,프로폴리스추출물,프로폴리스;꿀벌추출물,진정,여드름;진정;항균,일반,Y,N,
+Zinc PCA,징크피씨에이,징크피씨에이;징크PCA,각질제거,여드름;피지;모공,일반,N,N,
+Titanium Dioxide,티타늄디옥사이드,티타늄디옥사이드;무기자차;물리적자외선차단,자외선차단,자외선;UVA;UVB;민감성,자외선차단성분,Y,N,무기자차 - 민감성 시연 포인트
+Zinc Oxide,징크옥사이드,징크옥사이드;산화아연;무기자차,자외선차단,자외선;UVA;UVB;민감성,자외선차단성분,Y,N,무기자차 - 임산부/아기 친화
+Ethylhexyl Methoxycinnamate,에칠헥실메톡시신나메이트,에칠헥실메톡시신나메이트;옥티노세이트;유기자차,자외선차단,자외선;UVB,자외선차단성분,N,N,유기자차
+Butyl Methoxydibenzoylmethane,부틸메톡시디벤조일메탄,부틸메톡시디벤조일메탄;아보벤존,자외선차단,자외선;UVA,자외선차단성분,N,N,UVA 차단 핵심
+Octocrylene,옥토크릴렌,옥토크릴렌,자외선차단,자외선;UVB,자외선차단성분,N,N,
+Bis-Ethylhexyloxyphenol Methoxyphenyl Triazine,비스-에칠헥실옥시페놀메톡시페닐트리아진,티노솔에스;Tinosorb S,자외선차단,자외선;UVA;UVB,자외선차단성분,N,N,상품명 티노솔 S
+Methylene Bis-Benzotriazolyl Tetramethylbutylphenol,메칠렌비스-벤조트리아졸릴테트라메칠부틸페놀,티노솔엠;Tinosorb M,자외선차단,자외선;UVA;UVB,자외선차단성분,N,N,상품명 티노솔 M
+Diethylamino Hydroxybenzoyl Hexyl Benzoate,디에칠아미노하이드록시벤조일헥실벤조에이트,유비눌에이플러스;Uvinul A Plus,자외선차단,자외선;UVA,자외선차단성분,N,N,
+Tocopherol,토코페롤,토코페롤;비타민E,항산화,주름;광노화,일반,N,N,
+Tocopheryl Acetate,토코페릴아세테이트,토코페릴아세테이트;비타민E유도체,항산화,주름;광노화,일반,N,N,
+Resveratrol,레스베라트롤,레스베라트롤,항산화,주름;광노화,일반,N,N,
+Ferulic Acid,페룰릭애씨드,페룰릭애씨드;페룰산,항산화,광노화;칙칙함,일반,N,N,비타민C와 시너지
+Astaxanthin,아스타잔틴,아스타잔틴,항산화,광노화;주름,일반,N,N,
+Dimethicone,디메치콘,디메치콘;실리콘,기타,,일반,N,N,실리콘 - 결베이스 / 일부 트러블 우려 표기
+Cetearyl Alcohol,세테아릴알코올,세테아릴알코올,기타,,일반,N,N,유화제 - 알코올과 무관
+Phenoxyethanol,페녹시에탄올,페녹시에탄올,방부,,일반,N,N,대표 방부제
+Disodium EDTA,디소듐이디티에이,디소듐EDTA,방부,,일반,N,N,킬레이트제
+Fragrance,향료,향료;인공향료;파퓸,기타,향민감성;알레르기,일반,N,N,향료 알레르기 검색 시노님 중요
+Polysorbate 60,폴리소르베이트60,폴리소르베이트60,기타,,일반,N,N,유화제
+Sodium Lauroyl Sarcosinate,소듐라우로일사르코시네이트,소듐라우로일사르코시네이트,세정,,일반,N,N,저자극 세정
+Coco-Glucoside,코코글루코사이드,코코글루코사이드;식물성계면활성제,세정,민감성,일반,Y,N,저자극 시연 포인트
+Sodium Lauryl Sulfate,소듐라우릴설페이트,SLS;소듐라우릴설페이트,세정,민감성;자극,일반,N,N,SLS 회피 시연 포인트 - 부정 시노님
+Cocamidopropyl Betaine,코카미도프로필베타인,코카미도프로필베타인,세정,,일반,N,N,
+Caffeine,카페인,카페인,기타,눈가;붓기,일반,N,N,눈가 제품
+Hydrolyzed Collagen,하이드롤라이즈드콜라겐,콜라겐;가수분해콜라겐,보습,주름;탄력,일반,N,N,
+Royal Jelly Extract,로얄젤리추출물,로얄젤리;꿀벌유래,보습,영양;재생,일반,N,N,
+Ginseng Root Extract,인삼뿌리추출물,인삼;홍삼추출물,항산화,주름;탄력,일반,Y,N,한국 토종 식물
+Rice Extract,쌀추출물,쌀추출물;쌀뜨물,미백,칙칙함;광채,일반,Y,N,K-beauty 시그니처
