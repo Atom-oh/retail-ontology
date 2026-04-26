@@ -43,24 +43,21 @@ def subgraph_for_skus(sku_ids: List[str], *, hops: int = 2) -> Dict[str, Any]:
     """
     if not sku_ids:
         return {"nodes": [], "edges": []}
-    # Parameterized query — sku_ids comes from user-controlled search results,
-    # so direct interpolation would be Cypher injection (e.g., a crafted id
-    # `' OR 1=1 MATCH (n) DETACH DELETE n //` could destroy the graph).
-    # `hops` is a server-side small int (1-3 typical) but we still clamp to
-    # bound exposure via the LIMIT below.
-    safe_hops = max(1, min(int(hops), 3))
-    cypher = f"""
-        MATCH (p:Product)
-        WHERE p.sku_id IN $sku_ids
-        OPTIONAL MATCH path = (p)-[*1..{safe_hops}]-(neighbor)
-        WITH collect(DISTINCT p) + collect(DISTINCT neighbor) AS nodes,
-             collect(DISTINCT relationships(path)) AS edge_groups
-        UNWIND edge_groups AS edges
-        UNWIND edges AS r
-        WITH nodes, collect(DISTINCT r) AS edges
-        RETURN nodes, edges
-        LIMIT 1
-    """
+    # sku_ids parameterized via $sku_ids. openCypher doesn't support
+    # parameterized variable-length path bounds (`*1..$hops`), so we whitelist
+    # the path clause to a fixed dict — even if upstream code stops clamping,
+    # only the predefined strings can enter the query (no f-string injection).
+    _PATH_CLAUSES = {1: "*1..1", 2: "*1..2", 3: "*1..3"}
+    clause = _PATH_CLAUSES.get(int(hops), _PATH_CLAUSES[2])
+    cypher = (
+        "MATCH (p:Product) WHERE p.sku_id IN $sku_ids "
+        f"OPTIONAL MATCH path = (p)-[{clause}]-(neighbor) "
+        "WITH collect(DISTINCT p) + collect(DISTINCT neighbor) AS nodes, "
+        "     collect(DISTINCT relationships(path)) AS edge_groups "
+        "UNWIND edge_groups AS edges UNWIND edges AS r "
+        "WITH nodes, collect(DISTINCT r) AS edges "
+        "RETURN nodes, edges LIMIT 1"
+    )
     rows = open_cypher(cypher, parameters={"sku_ids": list(sku_ids)})
     if not rows:
         return {"nodes": [], "edges": []}
