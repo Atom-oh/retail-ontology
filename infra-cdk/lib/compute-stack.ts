@@ -147,13 +147,13 @@ export class ComputeStack extends Stack {
     const webTaskRole = new iam.Role(this, 'WebTaskRole', {
       roleName: `${namePrefix}-ecs-task-role-web`,
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
-      description: 'Next.js task role — minimal (logs only)',
+      description: 'Next.js task role - minimal (logs only)',
     });
 
     const apiTaskRole = new iam.Role(this, 'ApiTaskRole', {
       roleName: `${namePrefix}-ecs-task-role-api`,
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
-      description: 'FastAPI task role — Bedrock/AgentCore/Neptune/OS/Aurora/S3',
+      description: 'FastAPI task role - Bedrock/AgentCore/Neptune/OS/Aurora/S3',
     });
     this.apiTaskRole = apiTaskRole;
 
