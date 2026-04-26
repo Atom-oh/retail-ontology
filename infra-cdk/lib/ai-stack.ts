@@ -296,7 +296,8 @@ export class AiStack extends Stack {
         service: '@aws-sdk/client-bedrock-agentcore-control',
         action: 'CreateMemoryCommand',
         parameters: {
-          name: `${namePrefix}-memory`,
+          // AgentCore Memory name regex: [a-zA-Z][a-zA-Z0-9_]{0,47} — no hyphens.
+          name: `${namePrefix.replace(/-/g, '_')}_memory`,
           description: 'Ontology demo conversational memory (session + 7d long-term)',
           eventExpiryDuration: 7,
           memoryExecutionRoleArn: memoryExecutionRole.roleArn,
