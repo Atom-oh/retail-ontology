@@ -397,7 +397,11 @@ export class ComputeStack extends Stack {
       serviceName: `${namePrefix}-web`,
       cluster: this.cluster,
       taskDefinition: webTaskDef,
-      desiredCount: 2,
+      // desiredCount=0 for scaffold deploy — ECS Circuit Breaker would roll
+      // back the stack if tasks fail to pull the not-yet-pushed :latest image.
+      // Scale up via `aws ecs update-service --desired-count 2` after the
+      // first `docker buildx build --push` completes.
+      desiredCount: 0,
       assignPublicIp: false,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [webSg],
@@ -412,7 +416,11 @@ export class ComputeStack extends Stack {
       serviceName: `${namePrefix}-api`,
       cluster: this.cluster,
       taskDefinition: apiTaskDef,
-      desiredCount: 2,
+      // desiredCount=0 for scaffold deploy — ECS Circuit Breaker would roll
+      // back the stack if tasks fail to pull the not-yet-pushed :latest image.
+      // Scale up via `aws ecs update-service --desired-count 2` after the
+      // first `docker buildx build --push` completes.
+      desiredCount: 0,
       assignPublicIp: false,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [apiSg],
