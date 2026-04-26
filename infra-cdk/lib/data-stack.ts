@@ -136,7 +136,7 @@ export class DataStack extends Stack {
     this.auroraCluster = new rds.DatabaseCluster(this, 'AuroraCluster', {
       clusterIdentifier: `${namePrefix}-aurora`,
       engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.of('15.5', '15'),
+        version: rds.AuroraPostgresEngineVersion.of('16.6', '16'),
       }),
       credentials: rds.Credentials.fromSecret(auroraSecret),
       defaultDatabaseName: 'ontology',
