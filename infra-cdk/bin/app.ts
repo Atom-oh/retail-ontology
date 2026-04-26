@@ -102,6 +102,11 @@ edge.addDependency(compute);
 const observability = new ObservabilityStack(app, `${stackPrefix}Observability`, {
   ...baseProps,
   env: primaryEnv,
+  cluster: compute.cluster,
+  webService: compute.webService,
+  apiService: compute.apiService,
+  alb: compute.alb,
+  monthlyBudgetUsd: 1000,
   description: 'CloudWatch Dashboard, Alarms, AWS Budgets',
 });
 observability.addDependency(compute);
