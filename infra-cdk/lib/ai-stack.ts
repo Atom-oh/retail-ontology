@@ -199,6 +199,22 @@ export class AiStack extends Stack {
     //    (run scripts/create_kb_index.py after deploying DataStack).
     //    KB creation will fail-fast if index is missing.
     // -------------------------------------------------------------------
+    // AOSS data access policy propagation is eventually consistent (~60s).
+    // Insert a sleep CR so KB creation doesn't race the policy.
+    const policyPropagation = new cr.AwsCustomResource(this, 'KBAccessPolicySleep', {
+      onCreate: {
+        service: 'STS',
+        action: 'getCallerIdentity',
+        physicalResourceId: cr.PhysicalResourceId.of('kb-policy-sleep'),
+      },
+      policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
+        resources: cr.AwsCustomResourcePolicy.ANY_RESOURCE,
+      }),
+      // 90 second timeout effectively waits for policy propagation
+      timeout: Duration.seconds(120),
+    });
+    policyPropagation.node.addDependency(kbAccessPolicy);
+
     const kb = new bedrock.CfnKnowledgeBase(this, 'KnowledgeBase', {
       name: `${namePrefix}-kb`,
       description: 'Ontology demo KB — products, reviews, manuals',
@@ -223,6 +239,7 @@ export class AiStack extends Stack {
       },
     });
     kb.addDependency(kbAccessPolicy);
+    kb.node.addDependency(policyPropagation);
     this.knowledgeBaseId = kb.attrKnowledgeBaseId;
     this.knowledgeBaseArn = kb.attrKnowledgeBaseArn;
 
@@ -248,11 +265,29 @@ export class AiStack extends Stack {
     });
 
     // -------------------------------------------------------------------
-    // 5. AgentCore Memory (spec § 6.4)
-    //    AwsCustomResource because aws-cdk-lib has no L1 for bedrock-agentcore
-    //    as of 2.150. installLatestAwsSdk=true to access the evolving API.
-    //    TODO Phase 5: replace with L1 once available.
+    // 5. AgentCore Memory (spec § 6.4) — verified against awslabs/agentcore-samples
+    //    Two distinct gotchas vs. earlier guesses:
+    //      • parameter is `namespaceTemplates` (raw API) not `namespaces`
+    //      • managed strategies require `memoryExecutionRoleArn` for Bedrock invoke
+    //    Namespace variables: `{actorId}` and `{sessionId}` (not `{userId}`).
     // -------------------------------------------------------------------
+    const memoryExecutionRole = new iam.Role(this, 'MemoryExecutionRole', {
+      roleName: `${namePrefix}-agentcore-memory-role`,
+      description: 'AgentCore Memory invokes Bedrock model for extraction/summarization',
+      assumedBy: new iam.ServicePrincipal('bedrock-agentcore.amazonaws.com', {
+        conditions: { StringEquals: { 'aws:SourceAccount': this.account } },
+      }),
+    });
+    memoryExecutionRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'BedrockInvokeForMemory',
+      actions: ['bedrock:InvokeModel'],
+      resources: [
+        `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-*`,
+        `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/*`,
+        `arn:aws:bedrock:*::foundation-model/anthropic.claude-*`,
+      ],
+    }));
+
     const memory = new cr.AwsCustomResource(this, 'AgentCoreMemory', {
       onCreate: {
         service: 'BedrockAgentCoreControl',
@@ -261,17 +296,18 @@ export class AiStack extends Stack {
           name: `${namePrefix}-memory`,
           description: 'Ontology demo conversational memory (session + 7d long-term)',
           eventExpiryDuration: 7,
+          memoryExecutionRoleArn: memoryExecutionRole.roleArn,
           memoryStrategies: [
             {
               summaryMemoryStrategy: {
                 name: 'session_summary',
-                namespaces: ['session/{sessionId}'],
+                namespaceTemplates: ['session/{sessionId}'],
               },
             },
             {
               userPreferenceMemoryStrategy: {
                 name: 'user_preferences',
-                namespaces: ['user/{userId}/preferences'],
+                namespaceTemplates: ['user/{actorId}/preferences'],
               },
             },
           ],
@@ -291,6 +327,7 @@ export class AiStack extends Stack {
       installLatestAwsSdk: true,
       timeout: Duration.minutes(5),
     });
+    memory.node.addDependency(memoryExecutionRole);
     this.agentCoreMemoryId = memory.getResponseField('id');
 
     // -------------------------------------------------------------------
