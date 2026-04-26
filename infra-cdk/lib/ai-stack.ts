@@ -19,6 +19,7 @@ export interface AiStackProps extends StackProps {
   readonly rawDocsBucket: s3.IBucket;
   readonly openSearchCollection: oss.CfnCollection;
   readonly openSearchKey: kms.IKey;
+  readonly s3Key: kms.IKey;
 }
 
 export class AiStack extends Stack {
@@ -33,7 +34,7 @@ export class AiStack extends Stack {
   constructor(scope: Construct, id: string, props: AiStackProps) {
     super(scope, id, props);
 
-    const { projectName, envName, rawDocsBucket, openSearchCollection, openSearchKey } = props;
+    const { projectName, envName, rawDocsBucket, openSearchCollection, openSearchKey, s3Key } = props;
     const namePrefix = `${projectName}-${envName}`;
     const collectionName = `${namePrefix}-os`;
     const indexName = `${namePrefix}-kb-index`;
@@ -54,9 +55,25 @@ export class AiStack extends Stack {
         },
       }),
     });
-    rawDocsBucket.grantRead(kbRole);
-    openSearchKey.grantDecrypt(kbRole);
+    // Cross-stack: explicit policy statements (no grantX) to avoid modifying
+    // KMS / S3 resource policies in DataStack (would create cycle).
     kbRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'S3RawDocsRead',
+      actions: ['s3:GetObject', 's3:ListBucket'],
+      resources: [rawDocsBucket.bucketArn, `${rawDocsBucket.bucketArn}/*`],
+    }));
+    kbRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'S3KmsDecrypt',
+      actions: ['kms:Decrypt', 'kms:GenerateDataKey'],
+      resources: [s3Key.keyArn],
+    }));
+    kbRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'OpenSearchKmsDecrypt',
+      actions: ['kms:Decrypt'],
+      resources: [openSearchKey.keyArn],
+    }));
+    kbRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'AossAccess',
       actions: ['aoss:APIAccessAll'],
       resources: [openSearchCollection.attrArn],
     }));

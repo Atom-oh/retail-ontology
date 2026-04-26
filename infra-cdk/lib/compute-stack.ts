@@ -33,6 +33,8 @@ export interface ComputeStackProps extends StackProps {
   readonly guardrailId: string;
   readonly guardrailVersion: string;
   readonly agentCoreMemoryId: string;
+  readonly s3Key: kms.IKey;
+  readonly auroraKey: kms.IKey;
   readonly logsKey: kms.IKey;
   readonly rawDocsBucket: s3.IBucket;
   readonly uploadsBucket: s3.IBucket;
@@ -54,7 +56,7 @@ export class ComputeStack extends Stack {
       projectName, envName, vpc, albSg, webSg, apiSg,
       auroraSecret, neptuneCluster, openSearchCollection,
       knowledgeBaseId, guardrailId, guardrailVersion, agentCoreMemoryId,
-      logsKey, rawDocsBucket, uploadsBucket,
+      s3Key, auroraKey, logsKey, rawDocsBucket, uploadsBucket,
     } = props;
 
     const isProd = envName === 'prod';
@@ -97,15 +99,22 @@ export class ComputeStack extends Stack {
     // -------------------------------------------------------------------
     // 3. Log groups (KMS-encrypted via logsKey)
     // -------------------------------------------------------------------
+    // TODO P1 (spec § 6.5): re-enable KMS CMK encryption on log groups.
+    // Direct encryptionKey on LogGroup with cross-stack key causes
+    // CDK to auto-grant logs service on the key (in DataStack),
+    // creating cycle DataStack → ComputeStack/TaskExecutionRole. Workaround:
+    //   (a) move LogGroups to DataStack, or
+    //   (b) move logsKey to a shared "secrets stack" both can ref, or
+    //   (c) use logs.CfnLogGroup directly + manual key policy.
+    // For scaffold, AWS-managed encryption is used.
+    void logsKey;
     const webLogGroup = new logs.LogGroup(this, 'WebLogGroup', {
       logGroupName: `/aws/ecs/${namePrefix}/web`,
-      encryptionKey: logsKey,
       retention: isProd ? logs.RetentionDays.ONE_MONTH : logs.RetentionDays.ONE_WEEK,
       removalPolicy,
     });
     const apiLogGroup = new logs.LogGroup(this, 'ApiLogGroup', {
       logGroupName: `/aws/ecs/${namePrefix}/api`,
-      encryptionKey: logsKey,
       retention: isProd ? logs.RetentionDays.ONE_MONTH : logs.RetentionDays.ONE_WEEK,
       removalPolicy,
     });
@@ -120,8 +129,19 @@ export class ComputeStack extends Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
       ],
     });
-    auroraSecret.grantRead(taskExecutionRole);
-    logsKey.grantEncryptDecrypt(taskExecutionRole);
+    // Cross-stack: use explicit policy statements (no grantX) to avoid
+    // modifying KMS key / secret resource policies in DataStack (cycle).
+    taskExecutionRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'AuroraSecretRead',
+      actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
+      resources: [auroraSecret.secretArn],
+    }));
+    taskExecutionRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'AuroraKmsDecrypt',
+      actions: ['kms:Decrypt'],
+      resources: [auroraKey.keyArn],
+    }));
+    // logsKey not used (LogGroup encryption removed; see TODO P1 above).
 
     const webTaskRole = new iam.Role(this, 'WebTaskRole', {
       roleName: `${namePrefix}-ecs-task-role-web`,
@@ -184,9 +204,31 @@ export class ComputeStack extends Stack {
       actions: ['xray:PutTraceSegments', 'xray:PutTelemetryRecords'],
       resources: ['*'],
     }));
-    auroraSecret.grantRead(apiTaskRole);
-    rawDocsBucket.grantRead(apiTaskRole);
-    uploadsBucket.grantReadWrite(apiTaskRole);
+    apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'AuroraSecretRead',
+      actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
+      resources: [auroraSecret.secretArn],
+    }));
+    apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'AuroraKmsDecrypt',
+      actions: ['kms:Decrypt'],
+      resources: [auroraKey.keyArn],
+    }));
+    apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'S3RawDocsRead',
+      actions: ['s3:GetObject', 's3:ListBucket'],
+      resources: [rawDocsBucket.bucketArn, `${rawDocsBucket.bucketArn}/*`],
+    }));
+    apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'S3UploadsReadWrite',
+      actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:ListBucket'],
+      resources: [uploadsBucket.bucketArn, `${uploadsBucket.bucketArn}/*`],
+    }));
+    apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'S3KmsDecrypt',
+      actions: ['kms:Decrypt', 'kms:GenerateDataKey'],
+      resources: [s3Key.keyArn],
+    }));
 
     // -------------------------------------------------------------------
     // 5. OS Serverless data access policy for api task role
@@ -279,10 +321,9 @@ export class ComputeStack extends Stack {
         RAW_DOCS_BUCKET: rawDocsBucket.bucketName,
         UPLOADS_BUCKET: uploadsBucket.bucketName,
       },
-      secrets: {
-        AURORA_USERNAME: ecs.Secret.fromSecretsManager(auroraSecret, 'username'),
-        AURORA_PASSWORD: ecs.Secret.fromSecretsManager(auroraSecret, 'password'),
-      },
+      // Secrets fetched at app startup via boto3 from AURORA_SECRET_ARN
+      // (cross-stack ecs.Secret.fromSecretsManager triggers auto-grant on
+      //  the secret's KMS key in DataStack → cycle).
     });
 
     // -------------------------------------------------------------------

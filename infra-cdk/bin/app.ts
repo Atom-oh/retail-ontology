@@ -62,6 +62,7 @@ const ai = new AiStack(app, `${stackPrefix}Ai`, {
   rawDocsBucket: data.rawDocsBucket,
   openSearchCollection: data.openSearchCollection,
   openSearchKey: data.openSearchKey,
+  s3Key: data.s3Key,
   description: 'Bedrock Knowledge Bases, Guardrails, AgentCore Memory',
 });
 ai.addDependency(data);
@@ -80,6 +81,8 @@ const compute = new ComputeStack(app, `${stackPrefix}Compute`, {
   guardrailId: ai.guardrailId,
   guardrailVersion: ai.guardrailVersion,
   agentCoreMemoryId: ai.agentCoreMemoryId,
+  s3Key: data.s3Key,
+  auroraKey: data.auroraKey,
   logsKey: data.logsKey,
   rawDocsBucket: data.rawDocsBucket,
   uploadsBucket: data.uploadsBucket,
