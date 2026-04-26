@@ -9,10 +9,12 @@ export interface NetworkStackProps extends StackProps {
   readonly vpcCidr: string;
   readonly maxAzs: number;
   readonly natGateways: number;
+  /** If set, reuses an existing VPC (skips creation + NAT). */
+  readonly importVpcId?: string;
 }
 
 export class NetworkStack extends Stack {
-  public readonly vpc: ec2.Vpc;
+  public readonly vpc: ec2.IVpc;
   public readonly albSg: ec2.SecurityGroup;
   public readonly webSg: ec2.SecurityGroup;
   public readonly apiSg: ec2.SecurityGroup;
@@ -23,29 +25,35 @@ export class NetworkStack extends Stack {
   constructor(scope: Construct, id: string, props: NetworkStackProps) {
     super(scope, id, props);
 
-    const { projectName, envName, vpcCidr, maxAzs, natGateways } = props;
+    const { projectName, envName, vpcCidr, maxAzs, natGateways, importVpcId } = props;
 
-    this.vpc = new ec2.Vpc(this, 'Vpc', {
-      ipAddresses: ec2.IpAddresses.cidr(vpcCidr),
-      maxAzs,
-      natGateways,
-      vpcName: `${projectName}-${envName}-vpc`,
-      enableDnsHostnames: true,
-      enableDnsSupport: true,
-      subnetConfiguration: [
-        {
-          name: 'public',
-          subnetType: ec2.SubnetType.PUBLIC,
-          cidrMask: 24,
-          mapPublicIpOnLaunch: false,
-        },
-        {
-          name: 'private-egress',
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-          cidrMask: 24,
-        },
-      ],
-    });
+    if (importVpcId) {
+      // Reuse existing VPC (avoids EIP quota for NAT and reuses centralized egress).
+      // Subnet types are inferred by CDK from tags / route table associations.
+      this.vpc = ec2.Vpc.fromLookup(this, 'Vpc', { vpcId: importVpcId });
+    } else {
+      this.vpc = new ec2.Vpc(this, 'Vpc', {
+        ipAddresses: ec2.IpAddresses.cidr(vpcCidr),
+        maxAzs,
+        natGateways,
+        vpcName: `${projectName}-${envName}-vpc`,
+        enableDnsHostnames: true,
+        enableDnsSupport: true,
+        subnetConfiguration: [
+          {
+            name: 'public',
+            subnetType: ec2.SubnetType.PUBLIC,
+            cidrMask: 24,
+            mapPublicIpOnLaunch: false,
+          },
+          {
+            name: 'private-egress',
+            subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+            cidrMask: 24,
+          },
+        ],
+      });
+    }
 
     this.albSg = new ec2.SecurityGroup(this, 'AlbSg', {
       vpc: this.vpc,
@@ -146,26 +154,31 @@ export class NetworkStack extends Stack {
       'VPC CIDR to Interface VPC Endpoints:443',
     );
 
-    this.vpc.addGatewayEndpoint('S3Endpoint', {
-      service: ec2.GatewayVpcEndpointAwsService.S3,
-      subnets: [{ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }],
-    });
-
-    const interfaceEndpoints: { id: string; service: ec2.InterfaceVpcEndpointAwsService }[] = [
-      { id: 'EcrApiEndpoint', service: ec2.InterfaceVpcEndpointAwsService.ECR },
-      { id: 'EcrDkrEndpoint', service: ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER },
-      { id: 'CloudWatchLogsEndpoint', service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS },
-      { id: 'SecretsManagerEndpoint', service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER },
-      { id: 'BedrockRuntimeEndpoint', service: new ec2.InterfaceVpcEndpointAwsService('bedrock-runtime') },
-    ];
-
-    for (const { id, service } of interfaceEndpoints) {
-      this.vpc.addInterfaceEndpoint(id, {
-        service,
-        subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-        securityGroups: [this.vpceSg],
-        privateDnsEnabled: true,
+    // Skip VPC endpoint creation when importing — existing VPC likely has
+    // its own endpoints already (CcOnBedrock VPC is pre-equipped). Egress
+    // for any uncovered service goes via existing NAT.
+    if (!importVpcId) {
+      this.vpc.addGatewayEndpoint('S3Endpoint', {
+        service: ec2.GatewayVpcEndpointAwsService.S3,
+        subnets: [{ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }],
       });
+
+      const interfaceEndpoints: { id: string; service: ec2.InterfaceVpcEndpointAwsService }[] = [
+        { id: 'EcrApiEndpoint', service: ec2.InterfaceVpcEndpointAwsService.ECR },
+        { id: 'EcrDkrEndpoint', service: ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER },
+        { id: 'CloudWatchLogsEndpoint', service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS },
+        { id: 'SecretsManagerEndpoint', service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER },
+        { id: 'BedrockRuntimeEndpoint', service: new ec2.InterfaceVpcEndpointAwsService('bedrock-runtime') },
+      ];
+
+      for (const { id, service } of interfaceEndpoints) {
+        this.vpc.addInterfaceEndpoint(id, {
+          service,
+          subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+          securityGroups: [this.vpceSg],
+          privateDnsEnabled: true,
+        });
+      }
     }
 
     Tags.of(this).add('Project', projectName);

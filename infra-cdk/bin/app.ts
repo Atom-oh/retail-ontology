@@ -17,6 +17,7 @@ const edgeRegion = app.node.tryGetContext('ontology:edgeRegion') as string;
 const vpcCidr = app.node.tryGetContext('ontology:vpcCidr') as string;
 const maxAzs = app.node.tryGetContext('ontology:maxAzs') as number;
 const natGateways = app.node.tryGetContext('ontology:natGateways') as number;
+const importVpcId = app.node.tryGetContext('ontology:importVpcId') as string | undefined;
 
 if (!projectName || !envName || !primaryRegion || !edgeRegion || !vpcCidr) {
   throw new Error(
@@ -42,6 +43,7 @@ const network = new NetworkStack(app, `${stackPrefix}Network`, {
   vpcCidr,
   maxAzs,
   natGateways,
+  importVpcId,
   description: 'VPC, subnets, NAT, security groups, VPC endpoints',
 });
 
