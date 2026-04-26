@@ -12,6 +12,7 @@ import * as oss from 'aws-cdk-lib/aws-opensearchserverless';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cr from 'aws-cdk-lib/custom-resources';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 
 export interface AiStackProps extends StackProps {
   readonly projectName: string;
@@ -265,90 +266,26 @@ export class AiStack extends Stack {
     });
 
     // -------------------------------------------------------------------
-    // 5. AgentCore Memory (spec § 6.4) — verified against awslabs/agentcore-samples
-    //    Two distinct gotchas vs. earlier guesses:
-    //      • parameter is `namespaceTemplates` (raw API) not `namespaces`
-    //      • managed strategies require `memoryExecutionRoleArn` for Bedrock invoke
-    //    Namespace variables: `{actorId}` and `{sessionId}` (not `{userId}`).
+    // 5. AgentCore Memory — POST-DEPLOY SCRIPT (not CDK)
+    //    After 5 sequential AwsCustomResource bootstrap failures (each at a
+    //    different abstraction layer — see commits c5768e7..d7907e5),
+    //    pivoted to the awslabs/awsops pattern: provision Memory via
+    //    `aws bedrock-agentcore-control create-memory` after stack deploy
+    //    and pass the resulting ID to compute-stack via SSM Parameter.
+    //
+    //    Bootstrap script: scripts/create_agentcore_memory.sh
+    //    SSM key: /${namePrefix}/agentcore/memory-id
+    //
+    //    ai-stack creates the SSM Parameter with placeholder; the script
+    //    overwrites with the real ID. compute-stack reads via valueFromLookup.
     // -------------------------------------------------------------------
-    const memoryExecutionRole = new iam.Role(this, 'MemoryExecutionRole', {
-      roleName: `${namePrefix}-agentcore-memory-role`,
-      description: 'AgentCore Memory invokes Bedrock model for extraction/summarization',
-      assumedBy: new iam.ServicePrincipal('bedrock-agentcore.amazonaws.com', {
-        conditions: { StringEquals: { 'aws:SourceAccount': this.account } },
-      }),
+    const memoryIdParam = new ssm.StringParameter(this, 'MemoryIdParam', {
+      parameterName: `/${namePrefix}/agentcore/memory-id`,
+      stringValue: 'pending-post-deploy-script',
+      description: 'AgentCore Memory ID — overwritten by scripts/create_agentcore_memory.sh',
+      tier: ssm.ParameterTier.STANDARD,
     });
-    memoryExecutionRole.addToPrincipalPolicy(new iam.PolicyStatement({
-      sid: 'BedrockInvokeForMemory',
-      actions: ['bedrock:InvokeModel'],
-      resources: [
-        `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-*`,
-        `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/*`,
-        `arn:aws:bedrock:*::foundation-model/anthropic.claude-*`,
-      ],
-    }));
-
-    const memory = new cr.AwsCustomResource(this, 'AgentCoreMemory', {
-      onCreate: {
-        // SDK v3 explicit form because PascalCase auto-mapping resolves to
-        // '@aws-sdk/client-bedrockagentcorecontrol' which doesn't exist;
-        // the actual package is '@aws-sdk/client-bedrock-agentcore-control'.
-        service: '@aws-sdk/client-bedrock-agentcore-control',
-        action: 'CreateMemoryCommand',
-        parameters: {
-          // AgentCore Memory name regex: [a-zA-Z][a-zA-Z0-9_]{0,47} — no hyphens.
-          name: `${namePrefix.replace(/-/g, '_')}_memory`,
-          description: 'Ontology demo conversational memory (session + 7d long-term)',
-          eventExpiryDuration: 7,
-          memoryExecutionRoleArn: memoryExecutionRole.roleArn,
-          memoryStrategies: [
-            {
-              summaryMemoryStrategy: {
-                name: 'session_summary',
-                namespaceTemplates: ['session/{sessionId}'],
-              },
-            },
-            {
-              userPreferenceMemoryStrategy: {
-                name: 'user_preferences',
-                namespaceTemplates: ['user/{actorId}/preferences'],
-              },
-            },
-          ],
-        },
-        physicalResourceId: cr.PhysicalResourceId.fromResponse('id'),
-      },
-      onDelete: {
-        service: '@aws-sdk/client-bedrock-agentcore-control',
-        action: 'DeleteMemoryCommand',
-        parameters: {
-          memoryId: new cr.PhysicalResourceIdReference(),
-        },
-      },
-      // fromSdkCalls auto-derives 'bedrock-agentcore-control:*' from the
-      // SDK package name, but the actual IAM action prefix is
-      // 'bedrock-agentcore:*'. Use explicit statements.
-      policy: cr.AwsCustomResourcePolicy.fromStatements([
-        new iam.PolicyStatement({
-          actions: [
-            'bedrock-agentcore:CreateMemory',
-            'bedrock-agentcore:DeleteMemory',
-            'bedrock-agentcore:GetMemory',
-            'bedrock-agentcore:UpdateMemory',
-            'bedrock-agentcore:ListMemories',
-          ],
-          resources: ['*'],
-        }),
-        new iam.PolicyStatement({
-          actions: ['iam:PassRole'],
-          resources: [memoryExecutionRole.roleArn],
-        }),
-      ]),
-      installLatestAwsSdk: true,
-      timeout: Duration.minutes(5),
-    });
-    memory.node.addDependency(memoryExecutionRole);
-    this.agentCoreMemoryId = memory.getResponseField('id');
+    this.agentCoreMemoryId = memoryIdParam.stringValue;
 
     // -------------------------------------------------------------------
     // 6. Tags + Outputs
