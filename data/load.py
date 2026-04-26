@@ -323,12 +323,35 @@ def index_to_opensearch(batch_size: int = 32) -> Dict[str, int]:
 
 
 # --------------------------------------------------------------------------
+def _sync_from_s3() -> None:
+    """When running in Fargate (no local data/output), pull from S3."""
+    bucket = os.environ.get("SYNTHETIC_DATA_BUCKET")
+    if not bucket:
+        return
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    s3 = boto3.client("s3", region_name=REGION)
+    paginator = s3.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix="data/output/"):
+        for obj in page.get("Contents", []) or []:
+            key = obj["Key"]
+            if not (key.endswith(".json") or key.endswith(".ndjson")):
+                continue
+            local = OUTPUT_DIR / Path(key).name
+            s3.download_file(bucket, key, str(local))
+            print(f"  s3://{bucket}/{key} → {local}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--neptune", action="store_true", default=False)
     parser.add_argument("--opensearch", action="store_true", default=False)
     parser.add_argument("--all", action="store_true", default=False)
+    parser.add_argument("--from-s3", action="store_true", default=False,
+                        help="Download data/output/ from $SYNTHETIC_DATA_BUCKET first")
     args = parser.parse_args()
+    if args.from_s3:
+        print("Syncing data/output/ from S3…")
+        _sync_from_s3()
     if args.all or (not args.neptune and not args.opensearch):
         args.neptune = args.opensearch = True
 

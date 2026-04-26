@@ -15,6 +15,11 @@ COPY api/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY api /app/api
+# data/load.py + scripts/ are bundled so the same image can run as a
+# one-shot Fargate loader via `aws ecs run-task` with override command.
+# data/output/* is downloaded from S3 at run time (not baked into image).
+COPY data /app/data
+COPY scripts /app/scripts
 
 EXPOSE 8000
 
