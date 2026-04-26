@@ -10,11 +10,11 @@ Pipeline (spec § 7.1):
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional, TypedDict
+from functools import lru_cache
+from typing import Any, Dict, List, TypedDict
+from urllib.parse import urlparse
 
-import requests
-from botocore.auth import SigV4Auth
-from botocore.awsrequest import AWSRequest
+from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
 from api.aws_clients import bedrock_runtime, session
 from api.config import get_settings
@@ -44,36 +44,23 @@ def hybrid_search(
 
     qvec = embedding.embed_query(scrubbed)
 
+    # AOSS doesn't support OpenSearch's `hybrid` query plugin —
+    # 'unsupported_operation_exception: Hybrid Search feature is not supported'.
+    # Use KNN-only path for now; Phase 5 can run match + KNN as separate
+    # requests and merge with Reciprocal Rank Fusion in code.
     body = {
         "size": candidate_pool,
         "query": {
-            "hybrid": {
-                "queries": [
-                    {
-                        "match": {
-                            "AMAZON_BEDROCK_TEXT_CHUNK": {
-                                "query": scrubbed,
-                                "analyzer": "korean_nori",
-                            }
-                        }
-                    },
-                    {
-                        "knn": {
-                            "bedrock-knowledge-base-default-vector": {
-                                "vector": qvec,
-                                "k": candidate_pool,
-                            }
-                        }
-                    },
-                ]
+            "knn": {
+                "bedrock-knowledge-base-default-vector": {
+                    "vector": qvec,
+                    "k": candidate_pool,
+                }
             }
         },
         "_source": ["AMAZON_BEDROCK_TEXT_CHUNK", "AMAZON_BEDROCK_METADATA"],
     }
-    raw = _signed_post(
-        f"{settings.opensearch_endpoint.rstrip('/')}/{settings.opensearch_index}/_search",
-        body,
-    )
+    raw = _os_client().search(index=settings.opensearch_index, body=body)
     hits_raw = raw.get("hits", {}).get("hits", [])
 
     candidates: List[SearchHit] = []
@@ -123,22 +110,18 @@ def _parse_metadata(raw: Any) -> Dict[str, Any]:
     return {}
 
 
-def _signed_post(url: str, body: Dict[str, Any]) -> Dict[str, Any]:
-    """SigV4 POST to OpenSearch Serverless data plane."""
+@lru_cache(maxsize=1)
+def _os_client() -> OpenSearch:
+    """opensearch-py with SigV4 — manual signing via botocore had inconsistent
+    header normalization that AOSS rejects with 403 (same issue we hit in
+    scripts/create_kb_index.py)."""
     settings = get_settings()
-    creds = session().get_credentials().get_frozen_credentials()
-    req = AWSRequest(
-        method="POST",
-        url=url,
-        data=json.dumps(body),
-        headers={"Content-Type": "application/json"},
-    )
-    SigV4Auth(creds, "aoss", settings.aws_region).add_auth(req)
-    resp = requests.post(
-        url,
-        headers=dict(req.headers),
-        data=req.body,
+    host = urlparse(settings.opensearch_endpoint).netloc or settings.opensearch_endpoint
+    creds = session().get_credentials()
+    return OpenSearch(
+        hosts=[{"host": host, "port": 443}],
+        http_auth=AWSV4SignerAuth(creds, settings.aws_region, "aoss"),
+        use_ssl=True, verify_certs=True,
+        connection_class=RequestsHttpConnection, pool_maxsize=4,
         timeout=settings.request_timeout_seconds,
     )
-    resp.raise_for_status()
-    return resp.json()

@@ -163,12 +163,15 @@ export class ComputeStack extends Stack {
       actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
       resources: [
         `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-*`,
-        `arn:aws:bedrock:${this.region}::foundation-model/cohere.embed-multilingual-v3`,
+        `arn:aws:bedrock:${this.region}::foundation-model/cohere.embed-*`,
         `arn:aws:bedrock:${this.region}::foundation-model/cohere.rerank-*`,
         `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/*`,
-        // Cross-region inference profile backends (us-east-1 / us-west-2 etc.)
+        // Cross-region / global inference profile backends — global.cohere.embed-v4
+        // routes to multiple regions; need wildcard ARN.
         `arn:aws:bedrock:*::foundation-model/anthropic.claude-*`,
+        `arn:aws:bedrock:*::foundation-model/cohere.embed-*`,
         `arn:aws:bedrock:*::foundation-model/cohere.rerank-*`,
+        `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
       ],
     }));
     apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
