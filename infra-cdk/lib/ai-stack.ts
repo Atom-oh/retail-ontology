@@ -324,9 +324,25 @@ export class AiStack extends Stack {
           memoryId: new cr.PhysicalResourceIdReference(),
         },
       },
-      policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
-        resources: cr.AwsCustomResourcePolicy.ANY_RESOURCE,
-      }),
+      // fromSdkCalls auto-derives 'bedrock-agentcore-control:*' from the
+      // SDK package name, but the actual IAM action prefix is
+      // 'bedrock-agentcore:*'. Use explicit statements.
+      policy: cr.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          actions: [
+            'bedrock-agentcore:CreateMemory',
+            'bedrock-agentcore:DeleteMemory',
+            'bedrock-agentcore:GetMemory',
+            'bedrock-agentcore:UpdateMemory',
+            'bedrock-agentcore:ListMemories',
+          ],
+          resources: ['*'],
+        }),
+        new iam.PolicyStatement({
+          actions: ['iam:PassRole'],
+          resources: [memoryExecutionRole.roleArn],
+        }),
+      ]),
       installLatestAwsSdk: true,
       timeout: Duration.minutes(5),
     });
