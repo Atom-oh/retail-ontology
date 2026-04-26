@@ -59,6 +59,9 @@ data.addDependency(network);
 const ai = new AiStack(app, `${stackPrefix}Ai`, {
   ...baseProps,
   env: primaryEnv,
+  rawDocsBucket: data.rawDocsBucket,
+  openSearchCollection: data.openSearchCollection,
+  openSearchKey: data.openSearchKey,
   description: 'Bedrock Knowledge Bases, Guardrails, AgentCore Memory',
 });
 ai.addDependency(data);
