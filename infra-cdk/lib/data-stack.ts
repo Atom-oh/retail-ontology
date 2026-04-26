@@ -169,7 +169,7 @@ export class DataStack extends Stack {
 
     this.neptuneCluster = new neptune.CfnDBCluster(this, 'NeptuneCluster', {
       dbClusterIdentifier: `${namePrefix}-neptune`,
-      engineVersion: '1.3.2.0',
+      engineVersion: '1.4.6.3',
       dbSubnetGroupName: neptuneSubnetGroup.ref,
       vpcSecurityGroupIds: [neptuneSg.securityGroupId],
       storageEncrypted: true,
