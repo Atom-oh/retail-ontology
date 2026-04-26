@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
-import localFont from 'next/font/local';
+import { Noto_Sans_KR } from 'next/font/google';
 import './globals.css';
 
-// Pretendard variable font hosted locally. Place pretendard-variable.woff2
-// in public/fonts/. Falls back to system fonts via tailwind config.
-const pretendard = localFont({
-  src: '../public/fonts/pretendard-variable.woff2',
+// Pretendard isn't on Google Fonts and the GitHub release ZIP exceeds
+// CDN limits — using Noto Sans KR (Google Fonts CDN-friendly) for reliable
+// builds. Replace with Pretendard via next/font/local once font CDN is set up.
+const pretendard = Noto_Sans_KR({
+  subsets: ['latin'],
+  weight: ['400', '500', '700', '900'],
   display: 'swap',
-  weight: '45 920',
   variable: '--font-pretendard',
 });
 

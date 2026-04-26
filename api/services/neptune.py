@@ -43,19 +43,25 @@ def subgraph_for_skus(sku_ids: List[str], *, hops: int = 2) -> Dict[str, Any]:
     """
     if not sku_ids:
         return {"nodes": [], "edges": []}
-    placeholders = ",".join(f"'{s}'" for s in sku_ids)
+    # Parameterized query — sku_ids comes from user-controlled search results,
+    # so direct interpolation would be Cypher injection (e.g., a crafted id
+    # `' OR 1=1 MATCH (n) DETACH DELETE n //` could destroy the graph).
+    # `hops` is a server-side small int (1-3 typical) but we still clamp to
+    # bound exposure via the LIMIT below.
+    safe_hops = max(1, min(int(hops), 3))
     cypher = f"""
         MATCH (p:Product)
-        WHERE p.sku_id IN [{placeholders}]
-        OPTIONAL MATCH path = (p)-[*1..{hops}]-(neighbor)
+        WHERE p.sku_id IN $sku_ids
+        OPTIONAL MATCH path = (p)-[*1..{safe_hops}]-(neighbor)
         WITH collect(DISTINCT p) + collect(DISTINCT neighbor) AS nodes,
              collect(DISTINCT relationships(path)) AS edge_groups
         UNWIND edge_groups AS edges
         UNWIND edges AS r
         WITH nodes, collect(DISTINCT r) AS edges
         RETURN nodes, edges
+        LIMIT 1
     """
-    rows = open_cypher(cypher)
+    rows = open_cypher(cypher, parameters={"sku_ids": list(sku_ids)})
     if not rows:
         return {"nodes": [], "edges": []}
     nodes_raw = rows[0].get("nodes", [])

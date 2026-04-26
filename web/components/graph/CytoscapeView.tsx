@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import type { Subgraph } from '@/lib/api-client';
 
-const ONTOLOGY_STYLE: cytoscape.Stylesheet[] = [
+const ONTOLOGY_STYLE: cytoscape.StylesheetStyle[] = [
   {
     selector: 'node',
     style: {

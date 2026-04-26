@@ -29,7 +29,7 @@ def _embed(texts: List[str], *, input_type: str) -> List[List[float]]:
         "texts": texts,
         "input_type": input_type,
         "embedding_types": ["float"],
-        "truncate": "END",
+        # cohere.embed-v4 doesn't accept "truncate" — auto-truncates instead
     }
     resp = bedrock_runtime().invoke_model(
         modelId=settings.bedrock_embed_model_id,

@@ -49,9 +49,11 @@ class Settings(BaseSettings):
         default="apac.anthropic.claude-haiku-4-5-v1:0", alias="BEDROCK_CHAT_MODEL_ID_LITE",
     )
     bedrock_embed_model_id: str = Field(
-        default="cohere.embed-multilingual-v3", alias="BEDROCK_EMBED_MODEL_ID",
+        # cohere.embed-multilingual-v3 was deprecated/unavailable in ap-northeast-2;
+        # global.cohere.embed-v4:0 is the cross-region inference profile (1536-dim).
+        default="global.cohere.embed-v4:0", alias="BEDROCK_EMBED_MODEL_ID",
     )
-    bedrock_embed_dim: int = 1024
+    bedrock_embed_dim: int = 1536
 
     # Buckets
     raw_docs_bucket: str = Field(alias="RAW_DOCS_BUCKET")
