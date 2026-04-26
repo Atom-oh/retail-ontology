@@ -381,6 +381,11 @@ export class ComputeStack extends Stack {
       port: 80,
       protocol: elbv2.ApplicationProtocol.HTTP,
       defaultAction: elbv2.ListenerAction.forward([webTg]),
+      // open=false prevents CDK from auto-adding 0.0.0.0/0:80 ingress to
+      // the ALB SG. SG only carries the CloudFront managed prefix list rule
+      // (added in network-stack). Org compliance (Epoxy) deletes listeners
+      // when the SG is wide-open even if a prefix list rule also exists.
+      open: false,
     });
     listener.addAction('ApiPathRule', {
       priority: 10,
