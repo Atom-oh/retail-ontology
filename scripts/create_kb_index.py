@@ -22,15 +22,14 @@ and OntologyRetailAi stacks.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 from typing import Optional
+from urllib.parse import urlparse
 
 import boto3
-import requests
-from botocore.auth import SigV4Auth
-from botocore.awsrequest import AWSRequest
+from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
+from opensearchpy.exceptions import RequestError
 
 REGION_DEFAULT = os.environ.get("AWS_REGION", "ap-northeast-2")
 SERVICE = "aoss"
@@ -90,33 +89,32 @@ def index_body() -> dict:
     }
 
 
-def signed_request(method: str, url: str, body: Optional[dict], region: str) -> requests.Response:
-    session = boto3.Session()
-    creds = session.get_credentials().get_frozen_credentials()
-    req = AWSRequest(
-        method=method,
-        url=url,
-        data=json.dumps(body) if body is not None else None,
-        headers={"Content-Type": "application/json"},
-    )
-    SigV4Auth(creds, SERVICE, region).add_auth(req)
-    return requests.request(
-        method=method, url=url, headers=dict(req.headers),
-        data=req.body, timeout=60,
+def _client(endpoint: str, region: str) -> OpenSearch:
+    """opensearch-py with SigV4 — reliable for AOSS data plane (manual
+    signing via botocore had inconsistent header normalization)."""
+    host = urlparse(endpoint).netloc or endpoint
+    creds = boto3.Session().get_credentials()
+    return OpenSearch(
+        hosts=[{"host": host, "port": 443}],
+        http_auth=AWSV4SignerAuth(creds, region, SERVICE),
+        use_ssl=True, verify_certs=True,
+        connection_class=RequestsHttpConnection,
+        pool_maxsize=4,
     )
 
 
 def create_index(endpoint: str, index_name: str, region: str) -> None:
-    url = f"{endpoint.rstrip('/')}/{index_name}"
-    print(f"PUT {url}")
-    resp = signed_request("PUT", url, index_body(), region)
-    if resp.status_code in (200, 201):
-        print(f"  ✓ created (status {resp.status_code})")
-    elif resp.status_code == 400 and "resource_already_exists" in resp.text:
-        print(f"  • already exists (idempotent)")
-    else:
-        print(f"  ✗ failed: {resp.status_code}\n{resp.text}", file=sys.stderr)
-        sys.exit(1)
+    print(f"PUT {endpoint.rstrip('/')}/{index_name}")
+    client = _client(endpoint, region)
+    try:
+        resp = client.indices.create(index=index_name, body=index_body())
+        print(f"  ✓ created: {resp}")
+    except RequestError as e:
+        if "resource_already_exists" in str(e):
+            print("  • already exists (idempotent)")
+        else:
+            print(f"  ✗ failed: {e}", file=sys.stderr)
+            sys.exit(1)
 
 
 def main() -> None:
