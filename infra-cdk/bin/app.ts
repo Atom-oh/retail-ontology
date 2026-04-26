@@ -93,6 +93,7 @@ const edge = new EdgeStack(app, `${stackPrefix}Edge`, {
   ...baseProps,
   env: primaryEnv,
   edgeEnv,
+  alb: compute.alb,
   description: 'CloudFront, Cognito, Lambda@Edge (cross-region us-east-1), WAF',
   crossRegionReferences: true,
 });
