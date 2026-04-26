@@ -73,6 +73,16 @@ const compute = new ComputeStack(app, `${stackPrefix}Compute`, {
   albSg: network.albSg,
   webSg: network.webSg,
   apiSg: network.apiSg,
+  auroraSecret: data.auroraSecret,
+  neptuneCluster: data.neptuneCluster,
+  openSearchCollection: data.openSearchCollection,
+  knowledgeBaseId: ai.knowledgeBaseId,
+  guardrailId: ai.guardrailId,
+  guardrailVersion: ai.guardrailVersion,
+  agentCoreMemoryId: ai.agentCoreMemoryId,
+  logsKey: data.logsKey,
+  rawDocsBucket: data.rawDocsBucket,
+  uploadsBucket: data.uploadsBucket,
   description: 'ECS Cluster, ECR, ALB, Fargate web/api services',
 });
 compute.addDependency(network);
