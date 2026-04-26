@@ -290,8 +290,11 @@ export class AiStack extends Stack {
 
     const memory = new cr.AwsCustomResource(this, 'AgentCoreMemory', {
       onCreate: {
-        service: 'BedrockAgentCoreControl',
-        action: 'createMemory',
+        // SDK v3 explicit form because PascalCase auto-mapping resolves to
+        // '@aws-sdk/client-bedrockagentcorecontrol' which doesn't exist;
+        // the actual package is '@aws-sdk/client-bedrock-agentcore-control'.
+        service: '@aws-sdk/client-bedrock-agentcore-control',
+        action: 'CreateMemoryCommand',
         parameters: {
           name: `${namePrefix}-memory`,
           description: 'Ontology demo conversational memory (session + 7d long-term)',
@@ -315,8 +318,8 @@ export class AiStack extends Stack {
         physicalResourceId: cr.PhysicalResourceId.fromResponse('id'),
       },
       onDelete: {
-        service: 'BedrockAgentCoreControl',
-        action: 'deleteMemory',
+        service: '@aws-sdk/client-bedrock-agentcore-control',
+        action: 'DeleteMemoryCommand',
         parameters: {
           memoryId: new cr.PhysicalResourceIdReference(),
         },
