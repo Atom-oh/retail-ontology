@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional
 import boto3
 from botocore.config import Config
 
-DEFAULT_MODEL_ID = "apac.anthropic.claude-sonnet-4-6-v1:0"
+DEFAULT_MODEL_ID = "global.anthropic.claude-sonnet-4-6"
 DEFAULT_REGION = "ap-northeast-2"
 DEFAULT_MAX_TOKENS = 8192
 

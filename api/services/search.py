@@ -44,31 +44,43 @@ def hybrid_search(
 
     qvec = embedding.embed_query(scrubbed)
 
-    # AOSS doesn't support OpenSearch's `hybrid` query plugin —
-    # 'unsupported_operation_exception: Hybrid Search feature is not supported'.
-    # Use KNN-only path for now; Phase 5 can run match + KNN as separate
-    # requests and merge with Reciprocal Rank Fusion in code.
-    body = {
+    # AOSS rejects OpenSearch's `hybrid` query plugin
+    # ('unsupported_operation_exception'). We run match (BM25/Nori) and KNN
+    # as separate searches and merge with Reciprocal Rank Fusion (RRF).
+    # RRF gives quality close to native hybrid (k≈60 is the standard tuning).
+    knn_body = {
         "size": candidate_pool,
         "query": {
             "knn": {
                 "bedrock-knowledge-base-default-vector": {
-                    "vector": qvec,
-                    "k": candidate_pool,
+                    "vector": qvec, "k": candidate_pool,
                 }
             }
         },
         "_source": ["AMAZON_BEDROCK_TEXT_CHUNK", "AMAZON_BEDROCK_METADATA"],
     }
-    raw = _os_client().search(index=settings.opensearch_index, body=body)
-    hits_raw = raw.get("hits", {}).get("hits", [])
+    bm25_body = {
+        "size": candidate_pool,
+        "query": {
+            "match": {
+                "AMAZON_BEDROCK_TEXT_CHUNK": {
+                    "query": scrubbed, "analyzer": "korean_nori",
+                }
+            }
+        },
+        "_source": ["AMAZON_BEDROCK_TEXT_CHUNK", "AMAZON_BEDROCK_METADATA"],
+    }
+    client = _os_client()
+    knn_raw = client.search(index=settings.opensearch_index, body=knn_body)
+    bm25_raw = client.search(index=settings.opensearch_index, body=bm25_body)
+    hits_raw = _rrf_merge(knn_raw, bm25_raw, k=60)
 
     candidates: List[SearchHit] = []
     for h in hits_raw:
         src = h.get("_source", {})
         candidates.append(SearchHit(
             sku_id=h.get("_id", ""),
-            score=float(h.get("_score", 0.0)),
+            score=float(h.get("_rrf_score") or h.get("_score", 0.0)),
             text=src.get("AMAZON_BEDROCK_TEXT_CHUNK", ""),
             metadata=_parse_metadata(src.get("AMAZON_BEDROCK_METADATA", "")),
         ))
@@ -108,6 +120,32 @@ def _parse_metadata(raw: Any) -> Dict[str, Any]:
         except json.JSONDecodeError:
             return {"_raw": raw}
     return {}
+
+
+def _rrf_merge(
+    *raws: Dict[str, Any], k: int = 60,
+) -> List[Dict[str, Any]]:
+    """
+    Reciprocal Rank Fusion: score(d) = sum_i 1/(k + rank_i(d)).
+    Standard k=60 from the original RRF paper. Higher k gives smoother fusion;
+    lower k weights top-ranked candidates more heavily.
+    """
+    scores: Dict[str, float] = {}
+    pool: Dict[str, Dict[str, Any]] = {}
+    for raw in raws:
+        hits = raw.get("hits", {}).get("hits", []) or []
+        for rank, h in enumerate(hits):
+            hid = h.get("_id", "")
+            if not hid:
+                continue
+            scores[hid] = scores.get(hid, 0.0) + 1.0 / (k + rank + 1)
+            pool[hid] = h  # keep one copy per id (last wins; equivalent fields)
+    fused = sorted(pool.values(),
+                   key=lambda h: scores.get(h.get("_id", ""), 0.0),
+                   reverse=True)
+    for h in fused:
+        h["_rrf_score"] = scores.get(h.get("_id", ""), 0.0)
+    return fused
 
 
 @lru_cache(maxsize=1)
