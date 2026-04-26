@@ -31,6 +31,7 @@ export class AiStack extends Stack {
   public readonly guardrailId: string;
   public readonly guardrailVersion: string;
   public readonly agentCoreMemoryId: string;
+  public readonly agentCoreMemoryParameterName: string;
 
   constructor(scope: Construct, id: string, props: AiStackProps) {
     super(scope, id, props);
@@ -279,13 +280,18 @@ export class AiStack extends Stack {
     //    ai-stack creates the SSM Parameter with placeholder; the script
     //    overwrites with the real ID. compute-stack reads via valueFromLookup.
     // -------------------------------------------------------------------
-    const memoryIdParam = new ssm.StringParameter(this, 'MemoryIdParam', {
-      parameterName: `/${namePrefix}/agentcore/memory-id`,
+    this.agentCoreMemoryParameterName = `/${namePrefix}/agentcore/memory-id`;
+    new ssm.StringParameter(this, 'MemoryIdParam', {
+      parameterName: this.agentCoreMemoryParameterName,
       stringValue: 'pending-post-deploy-script',
       description: 'AgentCore Memory ID — overwritten by scripts/create_agentcore_memory.sh',
       tier: ssm.ParameterTier.STANDARD,
     });
-    this.agentCoreMemoryId = memoryIdParam.stringValue;
+    // Dynamic SSM reference for cross-stack consumption — resolved at deploy
+    // time of the consuming stack so post-deploy script updates are picked up.
+    this.agentCoreMemoryId = ssm.StringParameter.valueForStringParameter(
+      this, this.agentCoreMemoryParameterName,
+    );
 
     // -------------------------------------------------------------------
     // 6. Tags + Outputs

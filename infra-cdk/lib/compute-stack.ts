@@ -18,6 +18,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as neptune from 'aws-cdk-lib/aws-neptune';
 import * as oss from 'aws-cdk-lib/aws-opensearchserverless';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 
 export interface ComputeStackProps extends StackProps {
   readonly projectName: string;
@@ -32,7 +33,7 @@ export interface ComputeStackProps extends StackProps {
   readonly knowledgeBaseId: string;
   readonly guardrailId: string;
   readonly guardrailVersion: string;
-  readonly agentCoreMemoryId: string;
+  readonly agentCoreMemoryParameterName: string;
   readonly s3Key: kms.IKey;
   readonly auroraKey: kms.IKey;
   readonly logsKey: kms.IKey;
@@ -55,7 +56,7 @@ export class ComputeStack extends Stack {
     const {
       projectName, envName, vpc, albSg, webSg, apiSg,
       auroraSecret, neptuneCluster, openSearchCollection,
-      knowledgeBaseId, guardrailId, guardrailVersion, agentCoreMemoryId,
+      knowledgeBaseId, guardrailId, guardrailVersion, agentCoreMemoryParameterName,
       s3Key, auroraKey, logsKey, rawDocsBucket, uploadsBucket,
     } = props;
 
@@ -315,7 +316,11 @@ export class ComputeStack extends Stack {
         BEDROCK_KB_ID: knowledgeBaseId,
         BEDROCK_GUARDRAIL_ID: guardrailId,
         BEDROCK_GUARDRAIL_VERSION: guardrailVersion,
-        AGENTCORE_MEMORY_ID: agentCoreMemoryId,
+        // SSM dynamic reference — resolved at compute deploy time so the
+        // post-deploy AgentCore Memory script's update is picked up.
+        AGENTCORE_MEMORY_ID: ssm.StringParameter.valueForStringParameter(
+          this, agentCoreMemoryParameterName,
+        ),
         BEDROCK_RERANKER_INFERENCE_PROFILE_ARN:
           `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/cohere.rerank-v3`,
         RAW_DOCS_BUCKET: rawDocsBucket.bucketName,

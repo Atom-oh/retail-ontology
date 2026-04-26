@@ -82,7 +82,7 @@ const compute = new ComputeStack(app, `${stackPrefix}Compute`, {
   knowledgeBaseId: ai.knowledgeBaseId,
   guardrailId: ai.guardrailId,
   guardrailVersion: ai.guardrailVersion,
-  agentCoreMemoryId: ai.agentCoreMemoryId,
+  agentCoreMemoryParameterName: ai.agentCoreMemoryParameterName,
   s3Key: data.s3Key,
   auroraKey: data.auroraKey,
   logsKey: data.logsKey,

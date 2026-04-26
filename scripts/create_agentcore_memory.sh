@@ -28,9 +28,11 @@ echo "Expiry days:   ${EXPIRY_DAYS}"
 echo
 
 # Idempotent: reuse existing memory if name already taken.
+# list-memories response has no 'name' field — name is the id prefix
+# (id format: '<name>-<10char>'). Filter by starts_with(id, name+'-').
 EXISTING_ID="$(aws bedrock-agentcore-control list-memories \
   --region "$REGION" --max-results 100 \
-  --query "memories[?name=='${MEMORY_NAME}'].id | [0]" \
+  --query "memories[?starts_with(id, \`${MEMORY_NAME}-\`)].id | [0]" \
   --output text 2>/dev/null || true)"
 
 if [[ -n "$EXISTING_ID" && "$EXISTING_ID" != "None" ]]; then
