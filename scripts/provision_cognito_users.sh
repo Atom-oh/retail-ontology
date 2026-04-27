@@ -37,24 +37,27 @@ echo "User pool: $USER_POOL_ID"
 
 # 6 demo users — 4 shoppers (matching wow personas), 1 MD, 1 admin.
 # Real customer-facing demos should provision actual customer emails.
+# Cognito user pool was created with signInAliases.email — usernames
+# CANNOT be email-format. Use short usernames; email goes in the email
+# attribute and acts as a sign-in alias.
 declare -a USERS=(
-  "shopper-pregnant@demo.local|shopper|임산부 6개월"
-  "shopper-mom@demo.local|shopper|워킹맘 자녀 글루텐알레르기"
-  "shopper-sensitive@demo.local|shopper|민감성 24세"
-  "shopper-fitness@demo.local|shopper|헬스챌린저 35세"
-  "md-lotte@demo.local|md|롯데마트 MD"
-  "admin@demo.local|admin|데모 운영"
+  "demo_pregnant|shopper-pregnant@demo.local|shopper|임산부 6개월"
+  "demo_mom|shopper-mom@demo.local|shopper|워킹맘 자녀 글루텐알레르기"
+  "demo_sensitive|shopper-sensitive@demo.local|shopper|민감성 24세"
+  "demo_fitness|shopper-fitness@demo.local|shopper|헬스챌린저 35세"
+  "demo_md|md-lotte@demo.local|md|롯데마트 MD"
+  "demo_admin|admin@demo.local|admin|데모 운영"
 )
 
 for entry in "${USERS[@]}"; do
-  IFS='|' read -r email group label <<< "$entry"
-  echo "→ $email ($group, $label)"
-  if aws cognito-idp admin-get-user --user-pool-id "$USER_POOL_ID" --username "$email" --region "$REGION" >/dev/null 2>&1; then
+  IFS='|' read -r username email group label <<< "$entry"
+  echo "→ $username ($email, $group, $label)"
+  if aws cognito-idp admin-get-user --user-pool-id "$USER_POOL_ID" --username "$username" --region "$REGION" >/dev/null 2>&1; then
     echo "  • exists — skipping create"
   else
     aws cognito-idp admin-create-user \
       --user-pool-id "$USER_POOL_ID" \
-      --username "$email" \
+      --username "$username" \
       --user-attributes Name=email,Value="$email" Name=email_verified,Value=true Name=name,Value="$label" \
       --temporary-password "$TEMP_PW" \
       --message-action SUPPRESS \
@@ -62,7 +65,7 @@ for entry in "${USERS[@]}"; do
     echo "  ✓ created with temporary password (force change on first login)"
   fi
   aws cognito-idp admin-add-user-to-group \
-    --user-pool-id "$USER_POOL_ID" --username "$email" --group-name "$group" \
+    --user-pool-id "$USER_POOL_ID" --username "$username" --group-name "$group" \
     --region "$REGION" >/dev/null 2>&1 || true
 done
 
