@@ -303,15 +303,15 @@ export class ObservabilityStack extends Stack {
 
     // -------------------------------------------------------------------
     // 7. Cost Anomaly Detection (spec § 11.2)
+    //    AWS allows only ONE DIMENSIONAL anomaly monitor per account, and
+    //    the Default-Services-Monitor is auto-created on first Cost
+    //    Explorer use. We attach our subscription to it instead of
+    //    creating a duplicate (which fails with AlreadyExists).
     // -------------------------------------------------------------------
-    const costMonitor = new ce.CfnAnomalyMonitor(this, 'CostMonitor', {
-      monitorName: `${namePrefix}-cost-monitor`,
-      monitorType: 'DIMENSIONAL',
-      monitorDimension: 'SERVICE',
-    });
+    const defaultMonitorArn = `arn:aws:ce::${this.account}:anomalymonitor/5f661008-bda2-4e14-b513-e6cc5be9203e`;
     new ce.CfnAnomalySubscription(this, 'CostAnomalySubscription', {
       subscriptionName: `${namePrefix}-cost-anomaly`,
-      monitorArnList: [costMonitor.attrMonitorArn],
+      monitorArnList: [defaultMonitorArn],
       frequency: 'IMMEDIATE',
       threshold: 50,
       subscribers: [{ type: 'SNS', address: this.alarmTopic.topicArn }],
