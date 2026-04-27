@@ -123,9 +123,14 @@ export class EdgeStack extends Stack {
       // HTTP CF↔ALB plaintext path (spec § 5.3) — API rejects requests
       // without this header. ALB SG already restricts to CF prefix list,
       // so this is layered defense, not the only line.
-      // CFN resolves the secret value at deploy time via dynamic reference,
-      // never appearing in source or CFN template diff.
-      customHeaders: { 'X-Origin-Auth-Token': originAuthSecret.secretValue.unsafeUnwrap() },
+      // CFN dynamic reference: `{{resolve:secretsmanager:ARN:SecretString}}`
+      // is evaluated at deploy time. The literal string in the template is
+      // the resolve directive, NOT the secret value — so anyone with
+      // GetTemplate access sees only the directive, never the plaintext.
+      // (.unsafeUnwrap() inlines the value at synth and was wrong.)
+      customHeaders: {
+        'X-Origin-Auth-Token': `{{resolve:secretsmanager:${originAuthSecret.secretArn}:SecretString}}`,
+      },
     });
 
     const edgeLambdas: cloudfront.EdgeLambda[] = [{

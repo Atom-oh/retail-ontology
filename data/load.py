@@ -100,6 +100,28 @@ def load_jsonish(path: Path) -> List[Dict[str, Any]]:
     return items
 
 
+def _flatten_props(d: Dict[str, Any]) -> Dict[str, Any]:
+    """Neptune Cypher SET n += $p only accepts scalar property values.
+    Lists/dicts → JSON-encoded string. Edge collections handled separately
+    via explicit relationships (so we drop them from node properties)."""
+    out: Dict[str, Any] = {}
+    for k, v in d.items():
+        if v is None:
+            continue
+        if isinstance(v, (str, int, float, bool)):
+            out[k] = v
+        elif isinstance(v, list):
+            # Encode as semicolon-joined string for searchability; complex
+            # list-of-dict gets JSON.
+            if all(isinstance(x, (str, int, float, bool)) for x in v):
+                out[k] = ";".join(str(x) for x in v)
+            else:
+                out[k] = json.dumps(v, ensure_ascii=False)
+        else:
+            out[k] = json.dumps(v, ensure_ascii=False, default=str)
+    return out
+
+
 def load_neptune() -> Dict[str, int]:
     counts: Dict[str, int] = {}
 
@@ -108,7 +130,7 @@ def load_neptune() -> Dict[str, int]:
     for m in items:
         neptune_cypher(
             "MERGE (n:Manufacturer {mfr_id: $id}) SET n += $p",
-            {"id": m["mfr_id"], "p": {k: v for k, v in m.items() if k != "mfr_id"}},
+            {"id": m["mfr_id"], "p": _flatten_props({k: v for k, v in m.items() if k != "mfr_id"})},
         )
     counts["manufacturers"] = len(items)
 
@@ -118,7 +140,8 @@ def load_neptune() -> Dict[str, int]:
         neptune_cypher(
             "MERGE (n:Brand {brand_id: $id}) SET n += $p "
             "WITH n MATCH (m:Manufacturer {mfr_id: $mid}) MERGE (n)-[:MANUFACTURED_BY]->(m)",
-            {"id": b["brand_id"], "p": {k: v for k, v in b.items() if k != "brand_id"},
+            {"id": b["brand_id"],
+             "p": _flatten_props({k: v for k, v in b.items() if k != "brand_id"}),
              "mid": b["manufacturer_id"]},
         )
     counts["brands"] = len(items)
@@ -128,7 +151,7 @@ def load_neptune() -> Dict[str, int]:
     for c in items:
         prefer = c.get("prefers_ingredient_ids", [])
         avoid = c.get("avoids_ingredient_ids", [])
-        plain = {k: v for k, v in c.items() if k not in ("prefers_ingredient_ids", "avoids_ingredient_ids")}
+        plain = _flatten_props({k: v for k, v in c.items() if k not in ("prefers_ingredient_ids", "avoids_ingredient_ids")})
         neptune_cypher(
             "MERGE (n:Concern {concern_id: $id}) SET n += $p", {"id": c["concern_id"], "p": plain},
         )
@@ -153,7 +176,7 @@ def load_neptune() -> Dict[str, int]:
     for t in items:
         ings = t.get("involves_ingredient_ids", [])
         cats = t.get("involves_brick_codes", [])
-        plain = {k: v for k, v in t.items() if k not in ("involves_ingredient_ids", "involves_brick_codes")}
+        plain = _flatten_props({k: v for k, v in t.items() if k not in ("involves_ingredient_ids", "involves_brick_codes")})
         neptune_cypher(
             "MERGE (n:Trend {trend_id: $id}) SET n += $p", {"id": t["trend_id"], "p": plain},
         )
@@ -177,7 +200,7 @@ def load_neptune() -> Dict[str, int]:
     items = load_jsonish(OUTPUT_DIR / "personas.ndjson")
     for p in items:
         cids = p.get("concern_ids", [])
-        plain = {k: v for k, v in p.items() if k not in ("concern_ids",)}
+        plain = _flatten_props({k: v for k, v in p.items() if k not in ("concern_ids",)})
         neptune_cypher(
             "MERGE (n:Persona {persona_id: $id}) SET n += $p", {"id": p["persona_id"], "p": plain},
         )
@@ -194,7 +217,7 @@ def load_neptune() -> Dict[str, int]:
     for prod in items:
         ings = prod.get("ingredients", [])
         target = prod.get("target_concern_ids", [])
-        plain = {k: v for k, v in prod.items() if k not in ("ingredients", "nutrients", "target_concern_ids")}
+        plain = _flatten_props({k: v for k, v in prod.items() if k not in ("ingredients", "nutrients", "target_concern_ids")})
         neptune_cypher(
             "MERGE (n:Product {sku_id: $id}) SET n += $p", {"id": prod["sku_id"], "p": plain},
         )
@@ -230,7 +253,7 @@ def load_neptune() -> Dict[str, int]:
 
     items = load_jsonish(OUTPUT_DIR / "reviews.ndjson")
     for r in items:
-        plain = {k: v for k, v in r.items() if k not in ("sku_id", "persona_id")}
+        plain = _flatten_props({k: v for k, v in r.items() if k not in ("sku_id", "persona_id")})
         neptune_cypher(
             "MERGE (rv:Review {review_id: $id}) SET rv += $p "
             "WITH rv MATCH (p:Product {sku_id: $sid}) MERGE (rv)-[:ABOUT]->(p) "
