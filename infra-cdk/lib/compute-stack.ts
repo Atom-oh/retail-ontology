@@ -207,14 +207,18 @@ export class ComputeStack extends Stack {
       resources: ['*'],
     }));
     apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
-      sid: 'NeptuneDbConnect',
-      // Wildcard action to cover all openCypher / Gremlin / SPARQL access
-      // patterns. Resource is scoped to this specific cluster only.
-      // (Initially listed connect+ReadDataViaQuery+WriteDataViaQuery; Neptune
-      // returned 403 even with simulator-allowed permissions — possible
-      // mismatch between IAM-policy actions and openCypher data plane action
-      // mapping. Wildcard avoids that hazard.)
-      actions: ['neptune-db:*'],
+      sid: 'NeptuneDbDataPlane',
+      // Specific data-plane actions only — no admin/management
+      // (DropGraph, ResetCluster). Earlier 403 was a SigV4 signing issue
+      // (manual SigV4 vs requests-aws4auth), not IAM — boto3 neptunedata
+      // client signs correctly. Verified working with these scoped actions.
+      actions: [
+        'neptune-db:connect',
+        'neptune-db:ReadDataViaQuery',
+        'neptune-db:WriteDataViaQuery',
+        'neptune-db:DeleteDataViaQuery',
+        'neptune-db:GetEngineStatus',
+      ],
       resources: [
         `arn:aws:neptune-db:${this.region}:${this.account}:${neptuneCluster.attrClusterResourceId}/*`,
       ],

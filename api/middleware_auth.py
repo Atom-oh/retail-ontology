@@ -32,13 +32,14 @@ from starlette.responses import Response
 
 logger = logging.getLogger("ontology.auth")
 
-PUBLIC_PATHS = {"/healthz", "/api/health-web"}
+PUBLIC_PATHS = {"/healthz", "/api/health-web", "/api/auth/callback"}
 
 
 def _is_public(path: str) -> bool:
     if path in PUBLIC_PATHS:
         return True
-    return path.startswith("/api/health-web") or path == "/healthz"
+    return (path.startswith("/api/health-web") or path == "/healthz"
+            or path.startswith("/api/auth/"))
 
 
 # 1-hour TTL — Cognito rotates JWKS keys (rarely, but it happens). lru_cache

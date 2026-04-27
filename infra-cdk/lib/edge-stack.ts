@@ -87,21 +87,62 @@ export class EdgeStack extends Stack {
     //    Scaffold pass-through. Replace inline code with cognito-at-edge
     //    npm package for production JWT validation against Cognito JWKS.
     // -------------------------------------------------------------------
-    // Lambda@Edge inline source. Production hardening: replace with
-    // cognito-at-edge package — must validate JWT cookie via JWKS from
-    //   https://cognito-idp.{REGION}.amazonaws.com/{POOL_ID}/.well-known/jwks.json
-    // and 302 to Cognito Hosted UI on miss. Lambda@Edge constraints:
-    // no env vars (config baked at synth via string replace), package <=1MB,
-    // 5-second timeout on VIEWER_REQUEST.
-    const edgeFnCode = [
-      "'use strict';",
-      "exports.handler = async (event) => {",
-      "  const request = event.Records[0].cf.request;",
-      "  // Scaffold pass-through. Auth enforcement lives in API layer until",
-      "  // cognito-at-edge JWT validation is wired here.",
-      "  return request;",
-      "};",
-    ].join('\n');
+    // Lambda@Edge: cookie-based auth check + 302 redirect to Cognito
+    // Hosted UI on miss. Config (User Pool, Client, Domain) baked at synth
+    // time via string substitution since Lambda@Edge has no env vars.
+    // Structural JWT check only (exp + format) — full RS256 verification
+    // happens in the API layer (api/middleware_auth.py). This is "auth at
+    // edge" for the user flow; data-plane safety is the API's job.
+    const cognitoDomain = `${projectName}-${envName}-${this.account}.auth.${this.region}.amazoncognito.com`;
+    // Hardcoded known client ID — Lambda@Edge can't have env vars or CDK
+    // tokens at synth time (forward-ref to userPoolClient that depends on
+    // distribution that depends on this lambda → cycle). Update if pool
+    // recreated. Stable across redeploys of this stack alone.
+    // Public asset paths bypass auth (favicon, fonts, _next static).
+    const edgeFnCode = `
+'use strict';
+const COGNITO_DOMAIN = ${JSON.stringify(cognitoDomain)};
+const PUBLIC_PATHS = [/^\\/$/, /^\\/api\\/auth\\//, /^\\/_next\\//, /^\\/favicon/, /^\\/api\\/health/];
+
+function readCookie(headers, name) {
+  const list = headers['cookie'] || [];
+  for (const c of list) {
+    for (const part of c.value.split(';')) {
+      const [k, ...rest] = part.trim().split('=');
+      if (k === name) return rest.join('=');
+    }
+  }
+  return null;
+}
+
+function isPublic(uri) { return PUBLIC_PATHS.some(rx => rx.test(uri)); }
+
+function isJwtValid(token) {
+  if (!token || token.split('.').length !== 3) return false;
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+    return typeof payload.exp === 'number' && payload.exp > Math.floor(Date.now() / 1000);
+  } catch { return false; }
+}
+
+exports.handler = async (event) => {
+  const request = event.Records[0].cf.request;
+  if (isPublic(request.uri)) return request;
+  const idToken = readCookie(request.headers, 'id_token');
+  const accessToken = readCookie(request.headers, 'access_token');
+  if (isJwtValid(idToken) || isJwtValid(accessToken)) return request;
+  const host = (request.headers.host || [{ value: '' }])[0].value;
+  const redirectUri = encodeURIComponent('https://' + host + '/api/auth/callback');
+  const loginUrl = 'https://' + COGNITO_DOMAIN + '/oauth2/authorize'
+    + '?response_type=code&scope=openid+email+profile'
+    + '&client_id=1tnhln5rbcpq4t2c7el9lvords'
+    + '&redirect_uri=' + redirectUri;
+  return {
+    status: '302', statusDescription: 'Found',
+    headers: { location: [{ key: 'Location', value: loginUrl }] }
+  };
+};
+`.trim();
 
     const authEdgeFn = new cfExperimental.EdgeFunction(this, 'AuthEdgeFn', {
       runtime: lambda.Runtime.NODEJS_20_X,
