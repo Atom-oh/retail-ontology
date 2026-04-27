@@ -18,14 +18,14 @@ between CF and ALB (spec § 5.3 demo trade-off) makes this header valuable.
 """
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import os
-import time
-from functools import lru_cache
 from typing import Optional
 
 import requests
+from cachetools import TTLCache, cached
 from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
@@ -41,7 +41,10 @@ def _is_public(path: str) -> bool:
     return path.startswith("/api/health-web") or path == "/healthz"
 
 
-@lru_cache(maxsize=1)
+# 1-hour TTL — Cognito rotates JWKS keys (rarely, but it happens). lru_cache
+# would lock us in until process restart, rejecting freshly-signed valid
+# tokens after rotation.
+@cached(TTLCache(maxsize=4, ttl=3600))
 def _jwks(region: str, user_pool_id: str) -> dict:
     url = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}/.well-known/jwks.json"
     return requests.get(url, timeout=10).json()
@@ -111,7 +114,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
             from api.aws_clients import origin_auth_secret
             expected = origin_auth_secret()
             received = request.headers.get("x-origin-auth-token", "")
-            if not expected or received != expected:
+            # Constant-time comparison — `==` would leak byte-by-byte timing
+            # to an attacker who reaches the ALB directly (defense in depth
+            # since SG already restricts to CF prefix list, but still).
+            if not expected or not hmac.compare_digest(received, expected):
                 logger.warning("origin auth missing/mismatch path=%s", path)
                 return Response(status_code=403, content="origin not allowed")
 
