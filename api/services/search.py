@@ -78,11 +78,14 @@ def hybrid_search(
     candidates: List[SearchHit] = []
     for h in hits_raw:
         src = h.get("_source", {})
+        meta = _parse_metadata(src.get("AMAZON_BEDROCK_METADATA", ""))
+        # AOSS doesn't accept custom _id; original SKU/review id is in metadata
+        original_id = meta.get("sku_id") or meta.get("review_id") or h.get("_id", "")
         candidates.append(SearchHit(
-            sku_id=h.get("_id", ""),
+            sku_id=original_id,
             score=float(h.get("_rrf_score") or h.get("_score", 0.0)),
             text=src.get("AMAZON_BEDROCK_TEXT_CHUNK", ""),
-            metadata=_parse_metadata(src.get("AMAZON_BEDROCK_METADATA", "")),
+            metadata=meta,
         ))
 
     if not rerank or not settings.bedrock_reranker_inference_profile_arn or not candidates:

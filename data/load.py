@@ -291,13 +291,14 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
 
 
 def docs_for_product(p: Dict[str, Any]) -> Dict[str, Any]:
+    # AOSS doesn't accept custom _id on index/create — let the engine assign.
+    # Original sku_id stays in metadata for retrieval-side filtering.
     text = " ".join([
         p.get("name_ko", ""),
         p.get("description_ko", ""),
         " ".join(p.get("claims_ko", []) or []),
     ]).strip()
     return {
-        "_id": p["sku_id"],
         "AMAZON_BEDROCK_TEXT_CHUNK": text,
         "AMAZON_BEDROCK_METADATA": json.dumps({
             "type": "product",
@@ -313,7 +314,6 @@ def docs_for_product(p: Dict[str, Any]) -> Dict[str, Any]:
 def docs_for_review(r: Dict[str, Any]) -> Dict[str, Any]:
     text = " ".join([r.get("title_ko", "") or "", r.get("body_ko", "")]).strip()
     return {
-        "_id": r["review_id"],
         "AMAZON_BEDROCK_TEXT_CHUNK": text,
         "AMAZON_BEDROCK_METADATA": json.dumps({
             "type": "review", "review_id": r["review_id"],
@@ -348,7 +348,8 @@ def index_to_opensearch(batch_size: int = 32) -> Dict[str, int]:
                     continue
                 d["bedrock-knowledge-base-default-vector"] = embs[ei]
                 ei += 1
-                actions.append({"_index": OPENSEARCH_INDEX, "_id": d.pop("_id"), "_source": d})
+                # AOSS: no _id (engine-assigned). Original ID lives in metadata.
+                actions.append({"_index": OPENSEARCH_INDEX, "_source": d})
             if actions:
                 # raise_on_error=False would silently swallow per-document
                 # failures (mapping conflicts, throttling, version conflicts).
