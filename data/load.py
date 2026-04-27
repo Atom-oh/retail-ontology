@@ -62,16 +62,18 @@ def _resolve_endpoints() -> None:
 def neptune_cypher(query: str, parameters: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
     if not NEPTUNE_ENDPOINT:
         raise RuntimeError("NEPTUNE_ENDPOINT not resolved")
+    # Use requests-aws4auth — purpose-built SigV4 for arbitrary HTTP requests.
+    # Manual SigV4 via botocore had subtle header normalization that AOSS/Neptune
+    # rejected (same issue we hit with AOSS in commit 8f04923).
+    from requests_aws4auth import AWS4Auth  # type: ignore
     url = f"https://{NEPTUNE_ENDPOINT}:8182/openCypher"
     body: Dict[str, Any] = {"query": query}
     if parameters:
         body["parameters"] = json.dumps(parameters)
     creds = boto3.Session().get_credentials().get_frozen_credentials()
-    data = json.dumps(body)
-    req = AWSRequest(method="POST", url=url, data=data,
-                     headers={"Content-Type": "application/json"})
-    SigV4Auth(creds, "neptune-db", REGION).add_auth(req)
-    resp = requests.post(url, headers=dict(req.headers), data=data, timeout=60)
+    auth = AWS4Auth(creds.access_key, creds.secret_key, REGION, "neptune-db",
+                    session_token=creds.token)
+    resp = requests.post(url, json=body, auth=auth, timeout=60)
     resp.raise_for_status()
     return resp.json().get("results", [])
 

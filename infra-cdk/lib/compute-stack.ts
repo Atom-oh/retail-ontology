@@ -425,11 +425,12 @@ export class ComputeStack extends Stack {
       serviceName: `${namePrefix}-web`,
       cluster: this.cluster,
       taskDefinition: webTaskDef,
-      // desiredCount=0 for scaffold deploy — ECS Circuit Breaker would roll
-      // back the stack if tasks fail to pull the not-yet-pushed :latest image.
-      // Scale up via `aws ecs update-service --desired-count 2` after the
-      // first `docker buildx build --push` completes.
-      desiredCount: 0,
+      // desiredCount=2 per spec § 6.2 (HA across 2 AZs). Earlier scaffold
+      // used 0 to bypass ECR-image-pull race during first deploy; now that
+      // images are pushed we can keep the spec'd value. Manual scale changes
+      // via `aws ecs update-service --desired-count N` will be reset to 2
+      // on next CDK deploy — that's intentional (CFN owns the source of truth).
+      desiredCount: 2,
       assignPublicIp: false,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [webSg],
@@ -444,11 +445,12 @@ export class ComputeStack extends Stack {
       serviceName: `${namePrefix}-api`,
       cluster: this.cluster,
       taskDefinition: apiTaskDef,
-      // desiredCount=0 for scaffold deploy — ECS Circuit Breaker would roll
-      // back the stack if tasks fail to pull the not-yet-pushed :latest image.
-      // Scale up via `aws ecs update-service --desired-count 2` after the
-      // first `docker buildx build --push` completes.
-      desiredCount: 0,
+      // desiredCount=2 per spec § 6.2 (HA across 2 AZs). Earlier scaffold
+      // used 0 to bypass ECR-image-pull race during first deploy; now that
+      // images are pushed we can keep the spec'd value. Manual scale changes
+      // via `aws ecs update-service --desired-count N` will be reset to 2
+      // on next CDK deploy — that's intentional (CFN owns the source of truth).
+      desiredCount: 2,
       assignPublicIp: false,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [apiSg],
