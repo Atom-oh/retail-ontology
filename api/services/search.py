@@ -91,7 +91,12 @@ def hybrid_search(
     if not rerank or not settings.bedrock_reranker_inference_profile_arn or not candidates:
         return candidates[:top_k]
 
-    return _bedrock_rerank(scrubbed, candidates, top_k)
+    # Reranker is optional — Cohere rerank-v3 may not be available in all
+    # regions/accounts. Fall back to KNN+BM25 RRF order on any error.
+    try:
+        return _bedrock_rerank(scrubbed, candidates, top_k)
+    except Exception:
+        return candidates[:top_k]
 
 
 def _bedrock_rerank(query: str, candidates: List[SearchHit], top_k: int) -> List[SearchHit]:
