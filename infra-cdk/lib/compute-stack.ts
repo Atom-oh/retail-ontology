@@ -372,6 +372,19 @@ export class ComputeStack extends Stack {
       idleTimeout: Duration.seconds(60),
       deletionProtection: isProd,
     });
+    // ALB access logs → S3 (spec § 10 audit). Bucket created in DataStack
+    // and passed via props would be cleaner, but using a dedicated bucket
+    // here keeps the audit log lifecycle independent.
+    const albLogsBucket = new s3.Bucket(this, 'AlbLogsBucket', {
+      bucketName: `${namePrefix}-alb-logs-${this.account}`,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      lifecycleRules: [{ expiration: Duration.days(30) }],
+      removalPolicy,
+      autoDeleteObjects: !isProd,
+    });
+    (this.alb as elbv2.ApplicationLoadBalancer).logAccessLogs(albLogsBucket, 'alb');
 
     const webTg = new elbv2.ApplicationTargetGroup(this, 'WebTg', {
       targetGroupName: `${namePrefix}-tg-web`,

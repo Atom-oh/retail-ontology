@@ -11,7 +11,11 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as budgets from 'aws-cdk-lib/aws-budgets';
+import * as ce from 'aws-cdk-lib/aws-ce';
+import * as cloudtrail from 'aws-cdk-lib/aws-cloudtrail';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import { RemovalPolicy } from 'aws-cdk-lib';
 
 export interface ObservabilityStackProps extends StackProps {
   readonly projectName: string;
@@ -263,7 +267,59 @@ export class ObservabilityStack extends Stack {
     });
 
     // -------------------------------------------------------------------
-    // 6. Tags
+    // 6. CloudTrail with Bedrock data events (spec § 10 audit)
+    //    Captures InvokeModel / Retrieve calls — required for compliance
+    //    audit trail of which IAM principal called which model when.
+    // -------------------------------------------------------------------
+    const trailBucket = new s3.Bucket(this, 'CloudTrailBucket', {
+      bucketName: `${namePrefix}-cloudtrail-${this.account}`,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      lifecycleRules: [{ expiration: Duration.days(30) }],
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    const trail = new cloudtrail.Trail(this, 'BedrockTrail', {
+      trailName: `${namePrefix}-bedrock`,
+      bucket: trailBucket,
+      includeGlobalServiceEvents: false,
+      isMultiRegionTrail: false,
+      sendToCloudWatchLogs: false,
+    });
+    // Bedrock data events must be configured via the L1 — Trail L2 doesn't
+    // yet support arbitrary advanced event selectors.
+    const cfnTrail = trail.node.defaultChild as cloudtrail.CfnTrail;
+    cfnTrail.advancedEventSelectors = [
+      {
+        name: 'BedrockModelInvocations',
+        fieldSelectors: [
+          { field: 'eventCategory', equalTo: ['Data'] },
+          { field: 'resources.type', equalTo: ['AWS::Bedrock::ModelInvocationLog'] },
+        ],
+      },
+    ];
+
+    // -------------------------------------------------------------------
+    // 7. Cost Anomaly Detection (spec § 11.2)
+    // -------------------------------------------------------------------
+    const costMonitor = new ce.CfnAnomalyMonitor(this, 'CostMonitor', {
+      monitorName: `${namePrefix}-cost-monitor`,
+      monitorType: 'DIMENSIONAL',
+      monitorDimension: 'SERVICE',
+    });
+    new ce.CfnAnomalySubscription(this, 'CostAnomalySubscription', {
+      subscriptionName: `${namePrefix}-cost-anomaly`,
+      monitorArnList: [costMonitor.attrMonitorArn],
+      frequency: 'IMMEDIATE',
+      threshold: 50,
+      subscribers: [{ type: 'SNS', address: this.alarmTopic.topicArn }],
+    });
+    this.alarmTopic.grantPublish(new iam.ServicePrincipal('costalerts.amazonaws.com'));
+
+    // -------------------------------------------------------------------
+    // 8. Tags
     // -------------------------------------------------------------------
     Tags.of(this).add('Project', projectName);
     Tags.of(this).add('Environment', envName);
