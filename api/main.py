@@ -40,12 +40,18 @@ app = FastAPI(
 )
 
 settings = get_settings()
+# CORS — wildcard origins with credentials is forbidden by the spec and
+# unsafe with non-conforming clients. We allow credentials only when an
+# explicit origin list is provided. With wildcard, credentials are off.
+_origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
+_has_wildcard = "*" in _origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_allow_origins.split(","),
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_origins or ["*"],
+    allow_credentials=not _has_wildcard,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Origin-Auth-Token"],
+    max_age=600,
 )
 # Cognito JWT validation + X-Origin-Auth-Token enforcement.
 # Modes controlled by DEMO_PUBLIC_MODE / REQUIRE_ORIGIN_AUTH env vars.

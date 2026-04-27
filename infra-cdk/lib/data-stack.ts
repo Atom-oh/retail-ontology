@@ -289,8 +289,10 @@ export class DataStack extends Stack {
     Tags.of(this).add('ManagedBy', 'cdk');
 
     // X-Origin-Auth-Token shared secret — auto-generated 32-char random,
-    // never in source. CF custom header + API middleware both reference
-    // via secretValue.unsafeUnwrap() which produces a CFN dynamic ref.
+    // never in source. Resolved at deploy time via CFN dynamic ref.
+    // Mitigation for CF↔ALB plaintext (spec § 5.3 demo trade-off): rotation
+    // schedule limits an intercepted-secret window to ≤30 days. API uses
+    // a 5-min TTL cache so rotations propagate without redeploy.
     this.originAuthSecret = new secretsmanager.Secret(this, 'OriginAuthSecret', {
       secretName: `${namePrefix}-origin-auth`,
       description: 'Shared secret matched on X-Origin-Auth-Token CF→ALB→API',
@@ -301,6 +303,13 @@ export class DataStack extends Stack {
       },
       removalPolicy,
     });
+    // Manual 30-day rotation policy (no AWS-managed rotation Lambda exists
+    // for arbitrary random strings — would need custom Lambda).
+    // Operator runs:
+    //   aws secretsmanager put-secret-value --secret-id $ARN \
+    //     --secret-string $(openssl rand -base64 32 | tr -d '=' | tr '+/' '-_')
+    // CF origin header re-resolves at next CF invalidation; API's 5-min
+    // TTL cache picks up automatically.
 
     new CfnOutput(this, 'AuroraSecretArn', {
       value: this.auroraSecret.secretArn,

@@ -9,7 +9,21 @@ set -euo pipefail
 PROJECT="${PROJECT:-ontology-retail}"
 ENV_NAME="${ENV_NAME:-dev}"
 REGION="${REGION:-ap-northeast-2}"
-TEMP_PW="${1:-Demo!Pass2026}"  # User must change on first sign-in
+
+# Temporary password from env or stdin — never hardcoded, never echoed.
+# Operator must rotate after first sign-in regardless.
+if [[ -n "${COGNITO_TEMP_PASSWORD:-}" ]]; then
+  TEMP_PW="$COGNITO_TEMP_PASSWORD"
+elif [[ ! -t 0 ]]; then
+  read -r TEMP_PW
+else
+  read -rsp "Temporary password (will not echo, min 10 chars + mix): " TEMP_PW
+  echo
+fi
+if [[ ${#TEMP_PW} -lt 10 ]]; then
+  echo "FATAL: temporary password must be ≥10 chars" >&2
+  exit 1
+fi
 
 USER_POOL_ID="$(aws cloudformation describe-stacks \
   --stack-name OntologyRetailEdge --region "$REGION" \
@@ -53,8 +67,9 @@ for entry in "${USERS[@]}"; do
 done
 
 echo
-echo "Temp password: $TEMP_PW (override: bash scripts/provision_cognito_users.sh '<new>')"
-echo "Hosted UI:     https://${PROJECT}-${ENV_NAME}-061525506239.auth.${REGION}.amazoncognito.com/oauth2/authorize"
+# Never echo the password. Operator already entered it; recall via the
+# secure entry method or rotate via cognito-idp admin-set-user-password.
+echo "Hosted UI: https://${PROJECT}-${ENV_NAME}-061525506239.auth.${REGION}.amazoncognito.com/oauth2/authorize"
 echo
 echo "To enforce auth on the API after users sign in once:"
 echo "  aws ecs update-service --cluster ${PROJECT}-${ENV_NAME}-cluster \\"
