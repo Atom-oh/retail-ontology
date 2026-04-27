@@ -197,7 +197,13 @@ export class ComputeStack extends Stack {
     }));
     apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
       sid: 'NeptuneDbConnect',
-      actions: ['neptune-db:connect', 'neptune-db:ReadDataViaQuery', 'neptune-db:WriteDataViaQuery'],
+      // Wildcard action to cover all openCypher / Gremlin / SPARQL access
+      // patterns. Resource is scoped to this specific cluster only.
+      // (Initially listed connect+ReadDataViaQuery+WriteDataViaQuery; Neptune
+      // returned 403 even with simulator-allowed permissions — possible
+      // mismatch between IAM-policy actions and openCypher data plane action
+      // mapping. Wildcard avoids that hazard.)
+      actions: ['neptune-db:*'],
       resources: [
         `arn:aws:neptune-db:${this.region}:${this.account}:${neptuneCluster.attrClusterResourceId}/*`,
       ],
