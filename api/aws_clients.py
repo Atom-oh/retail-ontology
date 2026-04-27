@@ -12,6 +12,7 @@ from typing import Any, Dict
 
 import boto3
 from botocore.config import Config
+from cachetools import TTLCache
 
 from api.config import get_settings
 
@@ -78,12 +79,22 @@ def aurora_credentials() -> Dict[str, str]:
     return json.loads(resp["SecretString"])
 
 
-@lru_cache(maxsize=1)
+_ORIGIN_SECRET_CACHE: "TTLCache[str, str]" = TTLCache(maxsize=2, ttl=300)
+
+
 def origin_auth_secret() -> str:
-    """Fetch and cache the X-Origin-Auth-Token shared secret."""
+    """Fetch the X-Origin-Auth-Token shared secret with a 5-minute TTL.
+    Allows rotation in Secrets Manager to take effect without ECS redeploy.
+    Shorter TTL than JWKS (1h) because secret rotation is a security-critical
+    operation — minimize stale-secret window."""
     import os
-    arn = os.environ.get("ORIGIN_AUTH_SECRET_ARN")
+    arn = os.environ.get("ORIGIN_AUTH_SECRET_ARN", "")
     if not arn:
         return ""
+    cached = _ORIGIN_SECRET_CACHE.get(arn)
+    if cached is not None:
+        return cached
     resp = secretsmanager().get_secret_value(SecretId=arn)
-    return resp["SecretString"]
+    value = resp["SecretString"]
+    _ORIGIN_SECRET_CACHE[arn] = value
+    return value
