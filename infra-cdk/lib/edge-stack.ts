@@ -20,6 +20,9 @@ export interface EdgeStackProps extends StackProps {
   readonly envName: string;
   readonly edgeEnv: Environment;
   readonly alb: elbv2.IApplicationLoadBalancer;
+  /** Shared secret sent as X-Origin-Auth-Token CF custom origin header.
+   *  API enforces this header — defense-in-depth even though CF↔ALB is HTTP. */
+  readonly originAuthSecret: string;
 }
 
 export class EdgeStack extends Stack {
@@ -31,7 +34,7 @@ export class EdgeStack extends Stack {
   constructor(scope: Construct, id: string, props: EdgeStackProps) {
     super(scope, id, props);
 
-    const { projectName, envName, alb } = props;
+    const { projectName, envName, alb, originAuthSecret } = props;
     const isProd = envName === 'prod';
     const removalPolicy = isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY;
     const namePrefix = `${projectName}-${envName}`;
@@ -114,6 +117,11 @@ export class EdgeStack extends Stack {
       httpPort: 80,
       readTimeout: Duration.seconds(60),
       keepaliveTimeout: Duration.seconds(60),
+      // Shared secret only known to CF and the API. Compensates for the
+      // HTTP CF↔ALB plaintext path (spec § 5.3) — API rejects requests
+      // without this header. ALB SG already restricts to CF prefix list,
+      // so this is layered defense, not the only line.
+      customHeaders: { 'X-Origin-Auth-Token': originAuthSecret },
     });
 
     const edgeLambdas: cloudfront.EdgeLambda[] = [{

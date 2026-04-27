@@ -40,6 +40,8 @@ export interface ComputeStackProps extends StackProps {
   readonly rawDocsBucket: s3.IBucket;
   readonly uploadsBucket: s3.IBucket;
   readonly syntheticDataBucket: s3.IBucket;
+  /** Shared secret matched against the X-Origin-Auth-Token header. */
+  readonly originAuthSecret: string;
 }
 
 export class ComputeStack extends Stack {
@@ -59,6 +61,7 @@ export class ComputeStack extends Stack {
       auroraSecret, neptuneCluster, openSearchCollection,
       knowledgeBaseId, guardrailId, guardrailVersion, agentCoreMemoryParameterName,
       s3Key, auroraKey, logsKey, rawDocsBucket, uploadsBucket, syntheticDataBucket,
+      originAuthSecret,
     } = props;
 
     const isProd = envName === 'prod';
@@ -334,6 +337,10 @@ export class ComputeStack extends Stack {
           `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/cohere.rerank-v3`,
         RAW_DOCS_BUCKET: rawDocsBucket.bucketName,
         UPLOADS_BUCKET: uploadsBucket.bucketName,
+        // Origin auth: API rejects requests without matching X-Origin-Auth-Token
+        // header. CloudFront sets this via custom origin header (edge-stack).
+        REQUIRE_ORIGIN_AUTH: 'true',
+        ORIGIN_AUTH_SECRET: originAuthSecret,
       },
       // Secrets fetched at app startup via boto3 from AURORA_SECRET_ARN
       // (cross-stack ecs.Secret.fromSecretsManager triggers auto-grant on
