@@ -88,6 +88,7 @@ const compute = new ComputeStack(app, `${stackPrefix}Compute`, {
   logsKey: data.logsKey,
   rawDocsBucket: data.rawDocsBucket,
   uploadsBucket: data.uploadsBucket,
+  syntheticDataBucket: data.syntheticDataBucket,
   description: 'ECS Cluster, ECR, ALB, Fargate web/api services',
 });
 compute.addDependency(network);

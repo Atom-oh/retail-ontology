@@ -39,6 +39,7 @@ export interface ComputeStackProps extends StackProps {
   readonly logsKey: kms.IKey;
   readonly rawDocsBucket: s3.IBucket;
   readonly uploadsBucket: s3.IBucket;
+  readonly syntheticDataBucket: s3.IBucket;
 }
 
 export class ComputeStack extends Stack {
@@ -57,7 +58,7 @@ export class ComputeStack extends Stack {
       projectName, envName, vpc, albSg, webSg, apiSg,
       auroraSecret, neptuneCluster, openSearchCollection,
       knowledgeBaseId, guardrailId, guardrailVersion, agentCoreMemoryParameterName,
-      s3Key, auroraKey, logsKey, rawDocsBucket, uploadsBucket,
+      s3Key, auroraKey, logsKey, rawDocsBucket, uploadsBucket, syntheticDataBucket,
     } = props;
 
     const isProd = envName === 'prod';
@@ -227,6 +228,11 @@ export class ComputeStack extends Stack {
       sid: 'S3UploadsReadWrite',
       actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:ListBucket'],
       resources: [uploadsBucket.bucketArn, `${uploadsBucket.bucketArn}/*`],
+    }));
+    apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'S3SyntheticDataRead',
+      actions: ['s3:GetObject', 's3:ListBucket'],
+      resources: [syntheticDataBucket.bucketArn, `${syntheticDataBucket.bucketArn}/*`],
     }));
     apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
       sid: 'S3KmsDecrypt',
