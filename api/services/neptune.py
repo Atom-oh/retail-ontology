@@ -11,29 +11,33 @@ For Scenario A's right-panel subgraph rendering, openCypher is used.
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
-import requests
-from botocore.auth import SigV4Auth
-from botocore.awsrequest import AWSRequest
+import boto3
 
 from api.aws_clients import session
 from api.config import get_settings
 
 
-def open_cypher(query: str, *, parameters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+@lru_cache(maxsize=1)
+def _neptunedata():
     settings = get_settings()
-    url = f"https://{settings.neptune_endpoint}:{settings.neptune_port}/openCypher"
-    body = {"query": query}
+    return boto3.client(
+        "neptunedata", region_name=settings.aws_region,
+        endpoint_url=f"https://{settings.neptune_endpoint}:{settings.neptune_port}",
+    )
+
+
+def open_cypher(query: str, *, parameters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    kwargs: Dict[str, Any] = {"openCypherQuery": query}
     if parameters:
-        body["parameters"] = json.dumps(parameters)
-    return _signed_post(url, body, service="neptune-db").get("results", [])
+        kwargs["parameters"] = json.dumps(parameters)
+    return _neptunedata().execute_open_cypher_query(**kwargs).get("results", [])
 
 
 def sparql(query: str) -> Dict[str, Any]:
-    settings = get_settings()
-    url = f"https://{settings.neptune_endpoint}:{settings.neptune_port}/sparql"
-    return _signed_post(url, {"query": query}, service="neptune-db")
+    return _neptunedata().execute_sparql_query(sparqlQuery=query)
 
 
 def subgraph_for_skus(sku_ids: List[str], *, hops: int = 2) -> Dict[str, Any]:
@@ -83,20 +87,7 @@ def _node_props(n: Any) -> Dict[str, Any]:
     return {}
 
 
-def _signed_post(url: str, body: Dict[str, Any], *, service: str) -> Dict[str, Any]:
-    settings = get_settings()
-    creds = session().get_credentials().get_frozen_credentials()
-    data = "&".join(f"{k}={requests.utils.quote(str(v))}" for k, v in body.items())
-    req = AWSRequest(
-        method="POST",
-        url=url,
-        data=data,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-    )
-    SigV4Auth(creds, service, settings.aws_region).add_auth(req)
-    resp = requests.post(
-        url, headers=dict(req.headers), data=data,
-        timeout=settings.request_timeout_seconds, verify=True,
-    )
-    resp.raise_for_status()
-    return resp.json()
+# Manual SigV4 helper removed — boto3 neptunedata client handles all
+# signing internally. Manual versions (botocore SigV4Auth + requests, OR
+# requests-aws4auth) both produced canonical-request mismatches that
+# Neptune rejected with 403.

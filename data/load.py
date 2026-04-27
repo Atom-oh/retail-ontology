@@ -59,23 +59,31 @@ def _resolve_endpoints() -> None:
 # --------------------------------------------------------------------------
 # Neptune helpers
 # --------------------------------------------------------------------------
+_NEPTUNE_CLIENT = None
+
+
+def _neptune_client():
+    global _NEPTUNE_CLIENT
+    if _NEPTUNE_CLIENT is None:
+        if not NEPTUNE_ENDPOINT:
+            raise RuntimeError("NEPTUNE_ENDPOINT not resolved")
+        # boto3 neptunedata client — internal SigV4 handles all canonical
+        # request edge cases. `requests-aws4auth` and manual SigV4 both
+        # returned 403 Forbidden for the same underlying signing-format
+        # mismatch (probably Host header port handling).
+        _NEPTUNE_CLIENT = boto3.client(
+            "neptunedata", region_name=REGION,
+            endpoint_url=f"https://{NEPTUNE_ENDPOINT}:8182",
+        )
+    return _NEPTUNE_CLIENT
+
+
 def neptune_cypher(query: str, parameters: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
-    if not NEPTUNE_ENDPOINT:
-        raise RuntimeError("NEPTUNE_ENDPOINT not resolved")
-    # Use requests-aws4auth — purpose-built SigV4 for arbitrary HTTP requests.
-    # Manual SigV4 via botocore had subtle header normalization that AOSS/Neptune
-    # rejected (same issue we hit with AOSS in commit 8f04923).
-    from requests_aws4auth import AWS4Auth  # type: ignore
-    url = f"https://{NEPTUNE_ENDPOINT}:8182/openCypher"
-    body: Dict[str, Any] = {"query": query}
+    kwargs: Dict[str, Any] = {"openCypherQuery": query}
     if parameters:
-        body["parameters"] = json.dumps(parameters)
-    creds = boto3.Session().get_credentials().get_frozen_credentials()
-    auth = AWS4Auth(creds.access_key, creds.secret_key, REGION, "neptune-db",
-                    session_token=creds.token)
-    resp = requests.post(url, json=body, auth=auth, timeout=60)
-    resp.raise_for_status()
-    return resp.json().get("results", [])
+        kwargs["parameters"] = json.dumps(parameters)
+    resp = _neptune_client().execute_open_cypher_query(**kwargs)
+    return resp.get("results", [])
 
 
 def load_jsonish(path: Path) -> List[Dict[str, Any]]:
