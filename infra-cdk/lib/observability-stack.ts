@@ -282,25 +282,20 @@ export class ObservabilityStack extends Stack {
       autoDeleteObjects: true,
     });
 
-    const trail = new cloudtrail.Trail(this, 'BedrockTrail', {
+    // Trail captures Bedrock management events (CreateKnowledgeBase,
+    // CreateGuardrail, etc.) which is sufficient for compliance audit of
+    // who configured what. Per-invocation data events for Bedrock require
+    // 'Bedrock Model Invocation Logging' (separate service config) — enable
+    // post-deploy via:
+    //   aws bedrock put-model-invocation-logging-configuration \
+    //     --logging-config s3Config={bucketName=...,keyPrefix=bedrock/}
+    new cloudtrail.Trail(this, 'BedrockTrail', {
       trailName: `${namePrefix}-bedrock`,
       bucket: trailBucket,
       includeGlobalServiceEvents: false,
       isMultiRegionTrail: false,
       sendToCloudWatchLogs: false,
     });
-    // Bedrock data events must be configured via the L1 — Trail L2 doesn't
-    // yet support arbitrary advanced event selectors.
-    const cfnTrail = trail.node.defaultChild as cloudtrail.CfnTrail;
-    cfnTrail.advancedEventSelectors = [
-      {
-        name: 'BedrockModelInvocations',
-        fieldSelectors: [
-          { field: 'eventCategory', equalTo: ['Data'] },
-          { field: 'resources.type', equalTo: ['AWS::Bedrock::ModelInvocationLog'] },
-        ],
-      },
-    ];
 
     // -------------------------------------------------------------------
     // 7. Cost Anomaly Detection (spec § 11.2)
