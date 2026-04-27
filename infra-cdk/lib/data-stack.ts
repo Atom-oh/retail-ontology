@@ -243,42 +243,13 @@ export class DataStack extends Stack {
     this.openSearchCollection.addDependency(networkPolicy);
     this.openSearchCollection.applyRemovalPolicy(removalPolicy);
 
-    // Base data access policy — grants account principals admin on the collection.
-    // Compute / Ai stacks should add fine-grained CfnAccessPolicy resources for
-    // ECS task role + Bedrock KB role specifically.
-    new oss.CfnAccessPolicy(this, 'OpenSearchBaseDataPolicy', {
-      name: `${namePrefix}-os-data-base`,
-      type: 'data',
-      policy: JSON.stringify([
-        {
-          Rules: [
-            {
-              ResourceType: 'collection',
-              Resource: [`collection/${collectionName}`],
-              Permission: [
-                'aoss:CreateCollectionItems',
-                'aoss:DeleteCollectionItems',
-                'aoss:UpdateCollectionItems',
-                'aoss:DescribeCollectionItems',
-              ],
-            },
-            {
-              ResourceType: 'index',
-              Resource: [`index/${collectionName}/*`],
-              Permission: [
-                'aoss:CreateIndex',
-                'aoss:DeleteIndex',
-                'aoss:UpdateIndex',
-                'aoss:DescribeIndex',
-                'aoss:ReadDocument',
-                'aoss:WriteDocument',
-              ],
-            },
-          ],
-          Principal: [`arn:aws:iam::${this.account}:root`],
-        },
-      ]),
-    });
+    // No "base" account-root data access policy — that would grant every
+    // IAM principal in the account admin on the collection (Kiro flag).
+    // Runtime access is granted by ai-stack (kb-role) and compute-stack
+    // (api-task-role) with role-specific principals. Bootstrap (e.g.,
+    // initial scripts/create_kb_index.py) requires a separate one-shot
+    // CfnAccessPolicy that names the deployer role explicitly — operator
+    // adds it via aws-cli the first time and removes after bootstrap.
 
     // -------------------------------------------------------------------
     // 6. Tags + Outputs

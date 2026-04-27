@@ -13,6 +13,7 @@ import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as budgets from 'aws-cdk-lib/aws-budgets';
 import * as ce from 'aws-cdk-lib/aws-ce';
 import * as cloudtrail from 'aws-cdk-lib/aws-cloudtrail';
+import * as cr from 'aws-cdk-lib/custom-resources';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { RemovalPolicy } from 'aws-cdk-lib';
@@ -304,11 +305,25 @@ export class ObservabilityStack extends Stack {
     // -------------------------------------------------------------------
     // 7. Cost Anomaly Detection (spec § 11.2)
     //    AWS allows only ONE DIMENSIONAL anomaly monitor per account, and
-    //    the Default-Services-Monitor is auto-created on first Cost
-    //    Explorer use. We attach our subscription to it instead of
-    //    creating a duplicate (which fails with AlreadyExists).
+    //    the Default-Services-Monitor is auto-created. Look up its ARN via
+    //    AwsCustomResource (account-portable; no hardcoded UUID).
     // -------------------------------------------------------------------
-    const defaultMonitorArn = `arn:aws:ce::${this.account}:anomalymonitor/5f661008-bda2-4e14-b513-e6cc5be9203e`;
+    const defaultMonitor = new cr.AwsCustomResource(this, 'DefaultMonitorLookup', {
+      onUpdate: {
+        service: 'CostExplorer',
+        action: 'getAnomalyMonitors',
+        parameters: { MaxResults: 10 },
+        physicalResourceId: cr.PhysicalResourceId.of(`${namePrefix}-default-monitor`),
+      },
+      policy: cr.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          actions: ['ce:GetAnomalyMonitors'],
+          resources: ['*'],
+        }),
+      ]),
+      installLatestAwsSdk: false,
+    });
+    const defaultMonitorArn = defaultMonitor.getResponseField('AnomalyMonitors.0.MonitorArn');
     new ce.CfnAnomalySubscription(this, 'CostAnomalySubscription', {
       subscriptionName: `${namePrefix}-cost-anomaly`,
       monitorArnList: [defaultMonitorArn],
