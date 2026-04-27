@@ -350,8 +350,26 @@ def index_to_opensearch(batch_size: int = 32) -> Dict[str, int]:
                 ei += 1
                 actions.append({"_index": OPENSEARCH_INDEX, "_id": d.pop("_id"), "_source": d})
             if actions:
-                helpers.bulk(client, actions, refresh=False, raise_on_error=False)
-            counts[label] += len(actions)
+                # raise_on_error=False would silently swallow per-document
+                # failures (mapping conflicts, throttling, version conflicts).
+                # parallel_bulk yields per-action results — we count successes
+                # and surface failures with first-error preview so partial
+                # loads aren't invisible.
+                ok, fails = 0, 0
+                first_error: Optional[str] = None
+                for success, info in helpers.parallel_bulk(
+                    client, actions, raise_on_error=False, raise_on_exception=False,
+                    chunk_size=batch_size, thread_count=2,
+                ):
+                    if success:
+                        ok += 1
+                    else:
+                        fails += 1
+                        if first_error is None:
+                            first_error = json.dumps(info, ensure_ascii=False)[:300]
+                counts[label] += ok
+                if fails:
+                    print(f"    ! {label}: {fails} failed (first: {first_error})")
     return counts
 
 
