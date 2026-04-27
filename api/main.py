@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from api.config import get_settings
+from api.middleware_auth import AuthMiddleware
 from api.routers import chat, health, ingest, insights, search
 
 logger = logging.getLogger("ontology.api")
@@ -46,6 +47,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Cognito JWT validation + X-Origin-Auth-Token enforcement.
+# Modes controlled by DEMO_PUBLIC_MODE / REQUIRE_ORIGIN_AUTH env vars.
+app.add_middleware(AuthMiddleware)
 
 app.include_router(health.router)
 app.include_router(search.router, prefix="/api")
