@@ -63,13 +63,13 @@ def neptune_cypher(query: str, parameters: Dict[str, Any] | None = None) -> List
     if not NEPTUNE_ENDPOINT:
         raise RuntimeError("NEPTUNE_ENDPOINT not resolved")
     url = f"https://{NEPTUNE_ENDPOINT}:8182/openCypher"
-    body = {"query": query}
+    body: Dict[str, Any] = {"query": query}
     if parameters:
         body["parameters"] = json.dumps(parameters)
     creds = boto3.Session().get_credentials().get_frozen_credentials()
-    data = "&".join(f"{k}={requests.utils.quote(str(v))}" for k, v in body.items())
+    data = json.dumps(body)
     req = AWSRequest(method="POST", url=url, data=data,
-                     headers={"Content-Type": "application/x-www-form-urlencoded"})
+                     headers={"Content-Type": "application/json"})
     SigV4Auth(creds, "neptune-db", REGION).add_auth(req)
     resp = requests.post(url, headers=dict(req.headers), data=data, timeout=60)
     resp.raise_for_status()
