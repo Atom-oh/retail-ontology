@@ -191,8 +191,19 @@ export class ComputeStack extends Stack {
       ],
     }));
     apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
-      sid: 'AgentCoreFullAccess',
-      actions: ['bedrock-agentcore:*'],
+      sid: 'AgentCoreMemoryDataPlane',
+      // Scoped to specific data-plane actions (memory-only); no control-plane
+      // (CreateMemory etc. is post-deploy script). Resource '*' because the
+      // Memory ARN is created at runtime and not known at synth time —
+      // rebuild after Memory creation to substitute specific ARN.
+      actions: [
+        'bedrock-agentcore:CreateEvent',
+        'bedrock-agentcore:ListEvents',
+        'bedrock-agentcore:RetrieveMemoryRecords',
+        'bedrock-agentcore:GetMemoryRecord',
+        'bedrock-agentcore:DeleteMemoryRecord',
+        'bedrock-agentcore:GetMemory',
+      ],
       resources: ['*'],
     }));
     apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({

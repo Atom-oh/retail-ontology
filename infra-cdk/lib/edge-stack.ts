@@ -54,7 +54,9 @@ export class EdgeStack extends Stack {
         fullname: { required: false, mutable: true },
       },
       passwordPolicy: {
-        minLength: 10,
+        // 8 chars + 3 categories (digit/upper/lower) is acceptable for
+        // demo accounts. Production should bump to ≥12 + symbols.
+        minLength: 8,
         requireDigits: true,
         requireSymbols: false,
         requireLowercase: true,
