@@ -18,10 +18,6 @@ const vpcCidr = app.node.tryGetContext('ontology:vpcCidr') as string;
 const maxAzs = app.node.tryGetContext('ontology:maxAzs') as number;
 const natGateways = app.node.tryGetContext('ontology:natGateways') as number;
 const importVpcId = app.node.tryGetContext('ontology:importVpcId') as string | undefined;
-const originAuthSecret = app.node.tryGetContext('ontology:originAuthSecret') as string;
-if (!originAuthSecret) {
-  throw new Error('Missing context ontology:originAuthSecret — generate via openssl rand -base64 32');
-}
 
 if (!projectName || !envName || !primaryRegion || !edgeRegion || !vpcCidr) {
   throw new Error(
@@ -93,7 +89,7 @@ const compute = new ComputeStack(app, `${stackPrefix}Compute`, {
   rawDocsBucket: data.rawDocsBucket,
   uploadsBucket: data.uploadsBucket,
   syntheticDataBucket: data.syntheticDataBucket,
-  originAuthSecret,
+  originAuthSecret: data.originAuthSecret,
   description: 'ECS Cluster, ECR, ALB, Fargate web/api services',
 });
 compute.addDependency(network);
@@ -105,7 +101,7 @@ const edge = new EdgeStack(app, `${stackPrefix}Edge`, {
   env: primaryEnv,
   edgeEnv,
   alb: compute.alb,
-  originAuthSecret,
+  originAuthSecret: data.originAuthSecret,
   description: 'CloudFront, Cognito, Lambda@Edge (cross-region us-east-1), WAF',
   crossRegionReferences: true,
 });

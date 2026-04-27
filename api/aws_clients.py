@@ -76,3 +76,14 @@ def aurora_credentials() -> Dict[str, str]:
     secret_arn = get_settings().aurora_secret_arn
     resp = secretsmanager().get_secret_value(SecretId=secret_arn)
     return json.loads(resp["SecretString"])
+
+
+@lru_cache(maxsize=1)
+def origin_auth_secret() -> str:
+    """Fetch and cache the X-Origin-Auth-Token shared secret."""
+    import os
+    arn = os.environ.get("ORIGIN_AUTH_SECRET_ARN")
+    if not arn:
+        return ""
+    resp = secretsmanager().get_secret_value(SecretId=arn)
+    return resp["SecretString"]

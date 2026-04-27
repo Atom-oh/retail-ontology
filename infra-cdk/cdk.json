@@ -73,7 +73,6 @@
     "ontology:maxAzs": 2,
     "ontology:natGateways": 1,
     "ontology:importVpcId": "vpc-0dfa5610180dfa628",
-    "_comment_importVpcId": "Set to existing VPC ID to reuse (skips VPC creation, uses existing NAT GWs). Unset to create fresh 10.20.0.0/16 VPC (requires EIP quota for NAT).",
-    "ontology:originAuthSecret": "z8gGXk4vXUlJFcUeUAnpcM2btBH9KoC9rtNfvyi6Z9Q"
+    "_comment_importVpcId": "Set to existing VPC ID to reuse (skips VPC creation, uses existing NAT GWs). Unset to create fresh 10.20.0.0/16 VPC (requires EIP quota for NAT)."
   }
 }

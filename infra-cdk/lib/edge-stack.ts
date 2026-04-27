@@ -14,6 +14,7 @@ import { experimental as cfExperimental } from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 
 export interface EdgeStackProps extends StackProps {
   readonly projectName: string;
@@ -21,8 +22,9 @@ export interface EdgeStackProps extends StackProps {
   readonly edgeEnv: Environment;
   readonly alb: elbv2.IApplicationLoadBalancer;
   /** Shared secret sent as X-Origin-Auth-Token CF custom origin header.
-   *  API enforces this header — defense-in-depth even though CF↔ALB is HTTP. */
-  readonly originAuthSecret: string;
+   *  API enforces this header — defense-in-depth even though CF↔ALB is HTTP.
+   *  Resolved via Secrets Manager dynamic ref at deploy time. */
+  readonly originAuthSecret: secretsmanager.ISecret;
 }
 
 export class EdgeStack extends Stack {
@@ -121,7 +123,9 @@ export class EdgeStack extends Stack {
       // HTTP CF↔ALB plaintext path (spec § 5.3) — API rejects requests
       // without this header. ALB SG already restricts to CF prefix list,
       // so this is layered defense, not the only line.
-      customHeaders: { 'X-Origin-Auth-Token': originAuthSecret },
+      // CFN resolves the secret value at deploy time via dynamic reference,
+      // never appearing in source or CFN template diff.
+      customHeaders: { 'X-Origin-Auth-Token': originAuthSecret.secretValue.unsafeUnwrap() },
     });
 
     const edgeLambdas: cloudfront.EdgeLambda[] = [{

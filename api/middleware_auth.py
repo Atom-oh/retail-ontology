@@ -48,36 +48,53 @@ def _jwks(region: str, user_pool_id: str) -> dict:
 
 
 def _verify_jwt(token: str, region: str, user_pool_id: str, client_id: str) -> dict:
-    """Minimal JWT verification — Phase 5 hardening should swap for python-jose
-    or PyJWT with full RS256 signature check. For demo we validate iss/aud/exp
-    structurally and trust the token if structure checks pass + JWKS kid match."""
+    """Full RS256 verification via PyJWT + cryptography. Validates:
+       - Signature against the matched JWK from Cognito's JWKS endpoint
+       - iss claim equals the expected Cognito issuer URL
+       - exp/nbf claims (auto-checked by PyJWT)
+       - client_id (access tokens) or aud (id tokens) matches our app client
+    """
+    import jwt as pyjwt
+    from jwt.algorithms import RSAAlgorithm
     try:
-        from base64 import urlsafe_b64decode
-        header_b64, payload_b64, _sig_b64 = token.split(".")
-        pad = "=" * (-len(payload_b64) % 4)
-        payload = json.loads(urlsafe_b64decode(payload_b64 + pad))
-        hdr = json.loads(urlsafe_b64decode(header_b64 + "=" * (-len(header_b64) % 4)))
-    except Exception:
-        raise HTTPException(status_code=401, detail="malformed token")
+        unverified_header = pyjwt.get_unverified_header(token)
+    except pyjwt.InvalidTokenError as e:
+        raise HTTPException(status_code=401, detail=f"malformed token: {e}")
+
+    kid = unverified_header.get("kid")
+    if not kid:
+        raise HTTPException(status_code=401, detail="missing kid header")
+    jwks = _jwks(region, user_pool_id)
+    matched = next((k for k in jwks.get("keys", []) if k.get("kid") == kid), None)
+    if not matched:
+        raise HTTPException(status_code=401, detail="unknown key id")
+    public_key = RSAAlgorithm.from_jwk(json.dumps(matched))
 
     expected_iss = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}"
-    if payload.get("iss") != expected_iss:
-        raise HTTPException(status_code=401, detail="bad issuer")
-    if payload.get("aud") and payload["aud"] != client_id:
-        raise HTTPException(status_code=401, detail="bad audience")
-    if payload.get("client_id") and payload["client_id"] != client_id:
-        raise HTTPException(status_code=401, detail="bad client_id")
-    if payload.get("exp", 0) < time.time():
+    try:
+        # Cognito access tokens use 'client_id' claim, id tokens use 'aud'.
+        # Verify signature + iss/exp/nbf via PyJWT, check audience manually
+        # because access tokens lack 'aud'.
+        claims = pyjwt.decode(
+            token, key=public_key, algorithms=["RS256"],
+            issuer=expected_iss, options={"verify_aud": False},
+        )
+    except pyjwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="token expired")
+    except pyjwt.InvalidSignatureError:
+        raise HTTPException(status_code=401, detail="bad signature")
+    except pyjwt.InvalidIssuerError:
+        raise HTTPException(status_code=401, detail="bad issuer")
+    except pyjwt.InvalidTokenError as e:
+        raise HTTPException(status_code=401, detail=f"invalid token: {e}")
 
-    jwks = _jwks(region, user_pool_id)
-    kid = hdr.get("kid")
-    if not any(k.get("kid") == kid for k in jwks.get("keys", [])):
-        raise HTTPException(status_code=401, detail="unknown key id")
-    # TODO Phase 5: verify RS256 signature with the matched JWK using
-    # cryptography.hazmat. Current check is structural + kid presence,
-    # NOT cryptographic — sufficient for demo when ENFORCE_AUTH=false default.
-    return payload
+    aud_or_client = claims.get("client_id") or claims.get("aud")
+    if isinstance(aud_or_client, list):
+        if client_id not in aud_or_client:
+            raise HTTPException(status_code=401, detail="bad client_id/aud")
+    elif aud_or_client != client_id:
+        raise HTTPException(status_code=401, detail="bad client_id/aud")
+    return claims
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -91,7 +108,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # so the demo URL still works without the CF redeploy that adds it.
         require_origin = os.environ.get("REQUIRE_ORIGIN_AUTH", "false").lower() == "true"
         if require_origin:
-            expected = os.environ.get("ORIGIN_AUTH_SECRET", "")
+            from api.aws_clients import origin_auth_secret
+            expected = origin_auth_secret()
             received = request.headers.get("x-origin-auth-token", "")
             if not expected or received != expected:
                 logger.warning("origin auth missing/mismatch path=%s", path)

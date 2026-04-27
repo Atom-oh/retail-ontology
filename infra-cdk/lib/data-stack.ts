@@ -38,6 +38,7 @@ export class DataStack extends Stack {
 
   public readonly auroraCluster: rds.IDatabaseCluster;
   public readonly auroraSecret: secretsmanager.ISecret;
+  public readonly originAuthSecret: secretsmanager.ISecret;
 
   public readonly neptuneCluster: neptune.CfnDBCluster;
 
@@ -286,6 +287,20 @@ export class DataStack extends Stack {
     Tags.of(this).add('Environment', envName);
     Tags.of(this).add('Stack', 'data');
     Tags.of(this).add('ManagedBy', 'cdk');
+
+    // X-Origin-Auth-Token shared secret — auto-generated 32-char random,
+    // never in source. CF custom header + API middleware both reference
+    // via secretValue.unsafeUnwrap() which produces a CFN dynamic ref.
+    this.originAuthSecret = new secretsmanager.Secret(this, 'OriginAuthSecret', {
+      secretName: `${namePrefix}-origin-auth`,
+      description: 'Shared secret matched on X-Origin-Auth-Token CF→ALB→API',
+      generateSecretString: {
+        excludePunctuation: true,
+        includeSpace: false,
+        passwordLength: 32,
+      },
+      removalPolicy,
+    });
 
     new CfnOutput(this, 'AuroraSecretArn', {
       value: this.auroraSecret.secretArn,

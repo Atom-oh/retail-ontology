@@ -40,8 +40,8 @@ export interface ComputeStackProps extends StackProps {
   readonly rawDocsBucket: s3.IBucket;
   readonly uploadsBucket: s3.IBucket;
   readonly syntheticDataBucket: s3.IBucket;
-  /** Shared secret matched against the X-Origin-Auth-Token header. */
-  readonly originAuthSecret: string;
+  /** Secrets Manager secret with the X-Origin-Auth-Token value. */
+  readonly originAuthSecret: secretsmanager.ISecret;
 }
 
 export class ComputeStack extends Stack {
@@ -242,6 +242,11 @@ export class ComputeStack extends Stack {
       actions: ['kms:Decrypt', 'kms:GenerateDataKey'],
       resources: [s3Key.keyArn],
     }));
+    apiTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'OriginAuthSecretRead',
+      actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
+      resources: [originAuthSecret.secretArn],
+    }));
 
     // -------------------------------------------------------------------
     // 5. OS Serverless data access policy for api task role
@@ -340,7 +345,9 @@ export class ComputeStack extends Stack {
         // Origin auth: API rejects requests without matching X-Origin-Auth-Token
         // header. CloudFront sets this via custom origin header (edge-stack).
         REQUIRE_ORIGIN_AUTH: 'true',
-        ORIGIN_AUTH_SECRET: originAuthSecret,
+        // ORIGIN_AUTH_SECRET fetched from Secrets Manager at app startup
+        // (api/aws_clients.py lru_cached fetcher). Env var carries only the ARN.
+        ORIGIN_AUTH_SECRET_ARN: originAuthSecret.secretArn,
       },
       // Secrets fetched at app startup via boto3 from AURORA_SECRET_ARN
       // (cross-stack ecs.Secret.fromSecretsManager triggers auto-grant on
