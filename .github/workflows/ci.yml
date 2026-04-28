@@ -71,6 +71,9 @@ jobs:
           CDK_DEFAULT_ACCOUNT: '000000000000'
           CDK_DEFAULT_REGION: 'ap-northeast-2'
         run: npx cdk synth --quiet --all
+      - name: jest snapshot tests
+        working-directory: infra-cdk
+        run: npx jest --ci
 
   # 4) pytest — Python unit + integration tests.
   #    Lives in tests/. Currently a smoke test that verifies api modules
