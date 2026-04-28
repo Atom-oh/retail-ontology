@@ -87,12 +87,17 @@ def evaluate(domain: str) -> None:
         except Exception as e:
             print(f"{i:>3} {'ERR':>5} {'-':>5} | {q}  → {e}")
     print("-" * 100)
-    print(f"Pass rate: {passes}/{len(QUERIES)} ({passes / len(QUERIES) * 100:.1f}%)")
-    if passes / len(QUERIES) < 0.7:
-        print("\nNOTE: < 70% pass rate. Consider:")
+    rate = passes / len(QUERIES)
+    print(f"Pass rate: {passes}/{len(QUERIES)} ({rate * 100:.1f}%)")
+    threshold = 0.85
+    if rate < threshold:
+        print(f"\nFAIL: pass rate {rate * 100:.1f}% < {threshold * 100:.0f}% threshold "
+              f"(declared in .claude/commands/test-all.md). Consider:")
         print("  - more wow_moment SKUs in products.py")
         print("  - additional Korean synonyms in ontology/mappings/inci-to-korean.csv")
         print("  - tuning RRF k or candidate_pool")
+        sys.exit(1)
+    print(f"\nPASS: pass rate {rate * 100:.1f}% >= {threshold * 100:.0f}% threshold.")
 
 
 def main() -> None:
