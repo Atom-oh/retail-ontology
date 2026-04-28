@@ -123,7 +123,7 @@ User → CloudFront (auth) → ALB → API → (Neptune + OpenSearch + Bedrock +
 
 - **Single image, two roles** — the API container ships with `data/load.py` and `scripts/` so the same image runs as either the API server or a one-shot loader via command override. Avoids a second ECR repo and second build pipeline.
 - **SHA-pinned task definitions** — `:latest` mutability bites ECS deploys; we pin a SHA tag in each new task-definition revision so rollouts are deterministic.
-- **Lambda@Edge stable-ID hardcoding** — Lambda@Edge cannot read SSM/Secrets, so user-pool/client IDs are baked at synth time. CDK outputs `LambdaEdgeUserPoolId` / `LambdaEdgeClientId` for drift detection. See [ADR-0003](decisions/0003-lambda-edge-stable-id-hardcode-strategy.md).
+- **Lambda@Edge stable-ID hardcoding** — Lambda@Edge cannot read SSM/Secrets, so user-pool/client IDs are baked at synth time. CDK outputs `UserPoolId` / `UserPoolClientId` / `UserPoolDomain` for drift detection. See [ADR-0003](decisions/0003-lambda-edge-stable-id-hardcode-strategy.md).
 - **AgentCore Memory via AwsCustomResource** — four-layer-explicit pattern (SDK package + IAM prefix + API parameters + name regex). See [ADR-0001](decisions/0001-agentcore-memory-via-aws-custom-resource.md).
 - **CloudTrail via L1 CfnTrail** — CDK 2.150 L2 `cloudtrail.Trail` emits empty `EventSelectors`. Workaround documented in [ADR-0002](decisions/0002-cloudtrail-via-cfntrail-with-manual-bucket-policy.md).
 - **Cognito UserPoolClient CDK-only authoring** — `update-user-pool-client` has PUT semantics; drive every config change through `cdk deploy edge`. See [ADR-0004](decisions/0004-cognito-user-pool-client-cdk-driven.md).
@@ -255,7 +255,7 @@ User → CloudFront (auth) → ALB → API → (Neptune + OpenSearch + Bedrock +
 
 - **단일 이미지, 두 가지 역할** — API 컨테이너가 `data/load.py`와 `scripts/`를 함께 번들하기 때문에 동일 이미지가 command override로 API 서버 또는 일회성 로더로 모두 작동합니다. 두 번째 ECR 리포 + 두 번째 빌드 파이프라인을 피합니다. ([ADR pending](decisions/0001-single-image-two-roles.md))
 - **SHA-pinned 태스크 정의** — `:latest` mutability가 ECS 배포에서 문제를 일으키므로 새 태스크 정의 revision마다 SHA 태그를 명시 — 결정적 롤아웃.
-- **하드코딩된 Cognito ID를 가진 Lambda@Edge inline 코드** — Lambda@Edge는 SSM/Secrets에 접근할 수 없어 사용자 풀/클라이언트 ID를 synth 시점에 baked in. CDK가 `LambdaEdgeUserPoolId` / `LambdaEdgeClientId`를 drift 감지용으로 출력합니다.
+- **하드코딩된 Cognito ID를 가진 Lambda@Edge inline 코드** — Lambda@Edge는 SSM/Secrets에 접근할 수 없어 사용자 풀/클라이언트 ID를 synth 시점에 baked in. CDK가 `UserPoolId` / `UserPoolClientId` / `UserPoolDomain`을 drift 감지용으로 출력합니다 (ADR-0003 참조).
 - **AgentCore Memory CDK gotchas** — AwsCustomResource v3 explicit form + fromStatements + underscore-only names 사용 (`agentcore_gotchas.md`에 기록).
 - **Sonnet 4.6만 사용** — 채팅·인사이트 모두 Sonnet 4.6 (env `BEDROCK_CHAT_MODEL_ID`). Haiku Lite는 분석 어조 품질 문제로 기각.
 

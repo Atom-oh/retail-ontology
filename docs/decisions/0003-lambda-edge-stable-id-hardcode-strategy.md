@@ -15,7 +15,7 @@ On CDK 2.150, `experimental.EdgeFunction`'s constructor passes only `env` and `t
 
 ## Decision
 
-For Lambda@Edge inline code that needs values from the parent (ap-northeast-2) stack, we **hardcode stable identifiers as string literals** and use `CfnOutput` to expose the CDK-resolved values for drift detection (commit `516c38e`). Specifically: the Cognito user pool ID, app-client ID, and OAuth domain are inlined into the Lambda source; corresponding `LambdaEdgeUserPoolId`, `LambdaEdgeClientId`, and `LambdaEdgeAuthDomain` outputs in the parent stack let `cdk diff` surface drift if a future change rotates these resources.
+For Lambda@Edge inline code that needs values from the parent (ap-northeast-2) stack, we **hardcode stable identifiers as string literals** and use `CfnOutput` to expose the CDK-resolved values for drift detection (commit `516c38e`). Specifically: the Cognito user pool ID, app-client ID, and OAuth domain are inlined into the Lambda source; corresponding `UserPoolId`, `UserPoolClientId`, and `UserPoolDomain` outputs in the parent stack let `cdk diff` surface drift if a future change rotates these resources.
 
 The CloudFront distribution's domain name (`distribution.domainName`) is **not** hardcoded into the auxiliary stack — instead, the Lambda derives `redirect_uri` from the request `Host` header at runtime. This keeps the parent stack as the only place that depends on the CF domain.
 
@@ -36,7 +36,7 @@ The CloudFront distribution's domain name (`distribution.domainName`) is **not**
 
 ### Negative
 
-- A future change that *replaces* the user pool or app client (rather than mutating it) would silently leave the Lambda pointing at the old IDs until someone notices the `cdk diff` output. Mitigation: `LambdaEdgeUserPoolId` etc. outputs are part of every deploy summary.
+- A future change that *replaces* the user pool or app client (rather than mutating it) would silently leave the Lambda pointing at the old IDs until someone notices the `cdk diff` output. Mitigation: `UserPoolId` etc. outputs are part of every deploy summary.
 - The hardcoded values are now part of the auxiliary stack's source; rotating them is a code change, not a config change.
 - The CloudFront-domain-from-Host-header trick assumes a single CloudFront distribution serves the auth flow. If we add a second domain, this logic needs revisiting.
 
@@ -47,7 +47,7 @@ The CloudFront distribution's domain name (`distribution.domainName`) is **not**
 ## Implementation Notes
 
 - File touched: `infra-cdk/lib/edge-stack.ts` (`AuthLambdaCode` template literal)
-- Outputs: `LambdaEdgeUserPoolId`, `LambdaEdgeClientId`, `LambdaEdgeAuthDomain`
+- Outputs: `UserPoolId`, `UserPoolClientId`, `UserPoolDomain`
 - Drift detection: every `cdk deploy` prints the outputs; CI can `aws cloudformation describe-stacks` and compare to the values inlined in source.
 - Migration plan: when CDK's `experimental.EdgeFunction` propagates `crossRegionReferences` (or upstream upgrades), restore Token usage in the inline code and remove the hardcoded literals.
 

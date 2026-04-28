@@ -18,7 +18,7 @@ All infrastructure for the demo, organized as six CDK stacks. Targets `ap-northe
 - **ARM64 everywhere** — all Fargate task definitions specify `cpuArchitecture: ecs.CpuArchitecture.ARM64`. Building x86 images by mistake will fail health checks.
 - **AgentCore Memory via AwsCustomResource** — must use v3 explicit form + `fromStatements` IAM + underscore-only memory names. See [ADR-0001](../docs/decisions/0001-agentcore-memory-via-aws-custom-resource.md) for the four sequential bootstrap failures.
 - **L2 CloudTrail emits empty EventSelectors** — CDK 2.150 bug. Use `CfnTrail` directly with manual bucket policy. See [ADR-0002](../docs/decisions/0002-cloudtrail-via-cfntrail-with-manual-bucket-policy.md).
-- **Lambda@Edge can't read SSM/Secrets** — bake stable Cognito user-pool/client IDs into the inline source. CDK exports `LambdaEdgeUserPoolId` / `LambdaEdgeClientId` for drift detection. See [ADR-0003](../docs/decisions/0003-lambda-edge-stable-id-hardcode-strategy.md).
+- **Lambda@Edge can't read SSM/Secrets** — bake stable Cognito user-pool/client IDs into the inline source. CDK exports `UserPoolId` / `UserPoolClientId` / `UserPoolDomain` for drift detection. See [ADR-0003](../docs/decisions/0003-lambda-edge-stable-id-hardcode-strategy.md).
 - **`experimental.EdgeFunction` drops `crossRegionReferences`** — same root cause as ADR-0003; covered in that ADR.
 - **`update-user-pool-client` clobbers config** — never partial-update; drive Cognito UserPoolClient config from CDK only. See [ADR-0004](../docs/decisions/0004-cognito-user-pool-client-cdk-driven.md).
 

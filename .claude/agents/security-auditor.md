@@ -19,8 +19,8 @@ Audit dimensions:
 
 3. **Cognito flows** — JWT verification (RS256, JWKS TTL), callback URL hygiene,
    password policy. Lambda@Edge inline code's hardcoded user-pool/client IDs
-   must match the runtime user pool (CDK outputs `LambdaEdgeUserPoolId` / `LambdaEdgeClientId`
-   for drift detection).
+   must match the runtime user pool (CDK outputs `UserPoolId` / `UserPoolClientId`
+   for drift detection — see ADR-0003).
 
 4. **Input validation** — Pydantic models on every route, Cypher parameterization
    (no f-string interpolation of user input), AOSS query DSL never built by string concatenation.
