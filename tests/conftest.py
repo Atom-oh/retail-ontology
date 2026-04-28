@@ -51,3 +51,8 @@ os.environ.setdefault("ONTOLOGY_ENV", "test")
 os.environ.setdefault("AWS_ACCOUNT_ID", "000000000000")
 os.environ.setdefault("COGNITO_USER_POOL_CLIENT_ID", "test-client-id")
 os.environ.setdefault("PUBLIC_DOMAIN", "retail-ontology.test.invalid")
+
+# Bypass Cognito JWT + origin-auth checks in unit/integration tests.
+# Production deployments leave these unset; api.middleware_auth defaults fail-closed.
+os.environ.setdefault("DEMO_PUBLIC_MODE", "true")
+os.environ.setdefault("REQUIRE_ORIGIN_AUTH", "false")
