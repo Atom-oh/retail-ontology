@@ -40,19 +40,29 @@ ontology-retail/
 │   ├── aws_clients.py    boto3 client factories (cached)
 │   └── Dockerfile        Single image used as both API server and one-shot loader
 ├── web/                  Next.js 14 App Router frontend
-│   ├── app/              Routes for scenarios A-G + objects + ops + meta
+│   ├── app/              Routes for scenarios A-H + objects + ops + meta
 │   ├── components/       PersonaSwitch, GuidedTour, CytoscapeView, Sidebar
 │   └── lib/api-client.ts Typed REST + SSE client
 ├── infra-cdk/            AWS CDK v2 infrastructure (TypeScript)
 │   ├── bin/              Entry point — instantiates all stacks
-│   └── lib/              network, data, compute, ai, edge, observability
+│   ├── lib/              network, data, compute, ai, edge, observability
+│   └── test/             Jest snapshot tests for all 6 stacks (Template.fromStack)
 ├── data/                 Synthetic data generator + Neptune/OpenSearch loader
 │   ├── load.py           CLI: --neptune --opensearch --from-s3
 │   ├── public/           Standards adapters: inci.py, foodon.py, kfda.py, beauty_categories.py
 │   └── output/           JSON/NDJSON outputs (also synced to S3)
 ├── ontology/mappings/    Standards CSV/JSON: INCI, FoodOn, GS1↔KFDA
-├── docs/                 Architecture, ADRs, runbooks
-└── scripts/              KB index init, Cognito provisioning, eval harness
+├── tests/                Pytest suite — smoke (router imports) + tests/api/ (httpx integration)
+├── docs/                 Architecture, ADRs (decisions/0001-0004), runbooks
+├── scripts/              KB index init, Cognito provisioning, eval harness, git hooks
+├── .claude/              Project harness — agents, skills, hooks, commands, settings
+│   ├── agents/           code-reviewer.md, security-auditor.md (model: sonnet, structured output)
+│   ├── skills/           wow-query-eval.md, cypher-conventions.md
+│   ├── hooks/            scrub-secrets.sh (PreToolUse + PostToolUse), changelog-reminder.sh (Stop)
+│   ├── commands/         deploy.md, review.md, test-all.md
+│   └── settings.json     Project-shared hooks + 60-entry deny list
+├── .github/workflows/    CI pipeline — python-ast, tsc-check, cdk-synth+jest, pytest
+└── .harness-eval/        Score history + latest report (latest.json drives README badge)
 ```
 
 ## Key Commands
@@ -78,8 +88,14 @@ aws ecs run-task --cluster ontology-retail-dev-cluster --task-definition ontolog
 # Frontend type check
 cd web && npx tsc --noEmit
 
-# Wow-query evaluation
+# Wow-query evaluation (live deployed CloudFront — needs DEMO_PUBLIC_MODE or session cookie)
 python3 scripts/eval_wow_queries.py
+
+# Offline test surface (run before commit / pushed by CI)
+pip install -r api/requirements.txt -r requirements-dev.txt
+pytest tests -q                      # 28 tests: 16 smoke + 5 models + 2 health + 5 search integration
+cd infra-cdk && npx jest --ci        # 6 CDK stack snapshot tests
+python -m compileall -q api data scripts   # AST validation (also a CI job)
 ```
 
 ## Conventions
@@ -112,6 +128,23 @@ python3 scripts/eval_wow_queries.py
 - Bedrock Guardrails apply on chat input scrub and insights answer output.
 - See [SECURITY.md](SECURITY.md) for explicit demo trade-offs and production migration plan.
 
+### Testing & CI
+
+- **Test layout**: `tests/test_smoke.py` (16 router import tests) + `tests/api/` (Pydantic models, /healthz, /api/search integration with `httpx.AsyncClient` + boto3 mocked at import-site) + `infra-cdk/test/stacks.test.ts` (Jest snapshot per stack).
+- **Env defaults**: `tests/conftest.py` sets dummy values for every `api.config.Settings` field at collection time + `DEMO_PUBLIC_MODE=true` + `REQUIRE_ORIGIN_AUTH=false`. Production deployments leave these unset (fail-closed defaults).
+- **Mocking**: patch at the import-site (`patch("api.routers.search.search.hybrid_search", ...)`), not at the source module. Keeps tests isolated from real AWS.
+- **CI gates** (`.github/workflows/ci.yml`): four jobs run on push/PR to `main` with concurrency cancel-in-progress — `python-ast` (compileall), `tsc-check` (matrix [web, infra-cdk]), `cdk-synth` (dummy account + jest snapshots), `pytest`. Wall time <13s for the test jobs.
+- **Snapshot updates**: after intentional CDK changes run `cd infra-cdk && npx jest -u` and review the diff. Snapshot lives at `infra-cdk/test/__snapshots__/stacks.test.ts.snap` (~7700 lines).
+- **Wow-query eval enforcement**: `scripts/eval_wow_queries.py` exits 1 at <85% pass rate (matches threshold in `.claude/commands/test-all.md`). Eval script needs a deployed CloudFront — for offline CI use the pytest suite.
+
+### Harness (.claude/)
+
+- `.claude/settings.json` is project-shared (hooks + 60-entry deny). `.claude/settings.local.json` is personal allow-list (gitignored).
+- `scrub-secrets.sh` PreToolUse + PostToolUse hook blocks AKIA/ASIA/JWT/private-key/Slack/GitHub-PAT in tool input/output.
+- Both agents pin `model: sonnet` and define explicit `## Output format` (severity taxonomy + finding shape + termination phrase).
+- Skills (`wow-query-eval`, `cypher-conventions`) provide project-specific guidance — see their `description` triggers.
+- Run `harness-eval:full` (5–10 min) or `harness-eval:standard` (30s) to score the harness against the 12-dimension rubric.
+
 ## Auto-Sync Rules
 
 When a session-level decision changes any of the following, update the corresponding doc immediately rather than letting it drift:
@@ -122,6 +155,9 @@ When a session-level decision changes any of the following, update the correspon
 - Adding a new domain or alias: update CloudFront alias, ACM cert (us-east-1), Cognito callback URLs (full re-PUT — `update-user-pool-client` clobbers config), API task-def `PUBLIC_DOMAIN` env, and Route53. Lambda@Edge derives `redirect_uri` from the request `Host` header so it adapts automatically.
 - Changing an environment variable: update [.env.example](.env.example), CDK task-definition env block in `infra-cdk/lib/compute-stack.ts`, the env section in [README.md](README.md), and the deployment runbook in `docs/runbooks/`.
 - Changing IAM scope: update [SECURITY.md](SECURITY.md) and the relevant ADR in `docs/decisions/`.
+- Adding an architectural decision: create `docs/decisions/NNNN-<slug>.md` from `.template.md`, link it from the relevant module-level CLAUDE.md "Key Design Decisions" section, and reference it from inline code with `@see ADR-NNNN`.
+- Adding a new agent / skill / hook: register in `.claude/settings.json` (hooks only), document the trigger condition in the agent/skill `description` frontmatter, and update this CLAUDE.md "Harness" subsection if the count or pattern changes.
+- Adding a new test surface: add the file under `tests/` (smoke) or `tests/api/` (FastAPI integration); env defaults belong in `tests/conftest.py`; wire into `.github/workflows/ci.yml` if it needs a new job.
 
 ## Memory References
 

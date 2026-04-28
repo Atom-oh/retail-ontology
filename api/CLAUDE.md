@@ -2,7 +2,7 @@
 
 ## Role
 
-HTTP surface for all seven scenarios plus the knowledge-graph object explorer, ontology meta views, and operations console. Runs as `uvicorn api.main:app` on Fargate ARM64. The same image is reused as a one-shot loader via command override, so anything imported by `api.main` must also be importable inside the loader.
+HTTP surface for all eight scenarios (A–H) plus the knowledge-graph object explorer, ontology meta views, and operations console. Runs as `uvicorn api.main:app` on Fargate ARM64. The same image is reused as a one-shot loader via command override, so anything imported by `api.main` must also be importable inside the loader.
 
 ## Layout
 
@@ -35,6 +35,21 @@ HTTP surface for all seven scenarios plus the knowledge-graph object explorer, o
 
 ## Testing
 
-- AST validate after edits: `python3 -c "import ast; ast.parse(open('api/routers/<file>.py').read())"`
-- Run wow-query eval against deployed: `python3 scripts/eval_wow_queries.py`
-- Local run requires VPN/SSM into the VPC for Neptune reachability — most demo work is done against the deployed instance.
+Three layers, fastest first:
+
+```bash
+# 1. AST validation — single router (sub-second)
+python3 -c "import ast; ast.parse(open('api/routers/<file>.py').read())"
+
+# 2. Pytest offline suite (28 tests, ~0.6s) — covers smoke imports + Pydantic + /healthz + /api/search integration with mocked services
+pytest tests -q
+
+# 3. Live wow-query eval against deployed CloudFront (target ≥85%, sys.exit(1) below)
+python3 scripts/eval_wow_queries.py
+```
+
+CI runs steps 1+2 on every push/PR (`.github/workflows/ci.yml`). Step 3 requires a deployed environment with `DEMO_PUBLIC_MODE=true` or a session cookie — see `.claude/skills/wow-query-eval.md`.
+
+Adding a router test: create `tests/api/test_<router>_integration.py`, use the `client` fixture from `tests/api/conftest.py`, patch service-layer calls at `api.routers.<router>.<service>.<func>`. See `tests/CLAUDE.md` for conventions.
+
+Local uvicorn run (`uvicorn api.main:app --reload`) requires VPN/SSM into the VPC for Neptune + AOSS reachability — most demo work is done against the deployed instance.

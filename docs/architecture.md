@@ -1,0 +1,269 @@
+# Architecture
+
+<p align="center">
+  <kbd><a href="#english">English</a></kbd> · <kbd><a href="#한국어">한국어</a></kbd>
+</p>
+
+---
+
+# English
+
+## System Overview
+
+`ontology-retail` is a multi-tier AWS-native demo for a Korean Retail/CPG knowledge graph. A FastAPI backend on Fargate fronts Bedrock + AgentCore + Neptune + OpenSearch, while a Next.js 14 frontend on Fargate provides scenario-specific UIs. CloudFront with Lambda@Edge cookie auth wraps the entire surface and a Cognito user pool gates access.
+
+Eight wow scenarios (A–H) span semantic search, conversational agent with memory, MD insights, persona match, safety, substitution, price/availability comparison, and logistics network. The ontology now includes a logistics layer (Region, Warehouse, Carrier, Route, Shipment, Event, Inventory) with a Korean choropleth map view (`react-simple-maps` + d3-geo + KOSTAT 행정구역 GeoJSON).
+
+## Components by Layer
+
+### Edge & Auth
+
+- **CloudFront distribution** (`EWRJ379EBN96U`) — TLS termination, viewer/origin caching, custom domain `retail-ontology.whchoi.net` with ACM `*.whchoi.net` cert.
+- **Lambda@Edge** (`AuthEdgeFn`, us-east-1 `experimental.EdgeFunction`) — cookie-based auth check, redirects unauthenticated viewers to Cognito Hosted UI.
+- **Cognito User Pool** (`ap-northeast-2_RcjIQPFSz`) — RS256 JWTs, OAuth code grant, email-as-username, demo password policy (8 chars).
+- **Origin Auth** — CloudFront forwards a Secrets-Manager-backed `X-Origin-Auth-Token` header to ALB; ALB SG restricts ingress to `com.amazonaws.global.cloudfront.origin-facing`.
+
+### Compute
+
+- **Web service** (ECS Fargate ARM64) — Next.js 14 standalone build, two-replica behind ALB.
+- **API service** (ECS Fargate ARM64) — FastAPI + uvicorn, two-replica, same image used as a one-shot loader via command override.
+- **ALB** (`ontology-retail-dev-alb`) — HTTP-80 origin (TLS terminated at CloudFront for demo posture; production cutover documented in SECURITY.md).
+
+### Data & Search
+
+- **Neptune cluster** (`ontology-retail-dev-neptune`) — single-instance dev sizing, openCypher endpoint, IAM auth via SigV4. 19 node classes (commerce + logistics + events) with ~5,000 nodes, ~10,000 edges loaded via the one-shot ECS loader.
+- **OpenSearch Serverless collection** (`5savsydhue1own3tfj0d`) — Nori Korean analyzer for BM25, Cohere `embed-v4` 1024-dim KNN, RRF fusion.
+- **Aurora PostgreSQL Serverless v2** (`ontology-retail-dev-aurora`) — session metadata + Cognito linkage.
+- **S3 buckets** — `raw-docs` (KB ingestion source), `uploads` (user uploads), `synthetic-data` (loader source — products/reviews/personas + regions/warehouses/carriers/routes/shipments/events/inventory), `ontology-snapshots` (versioned ontology).
+
+### Logistics & Events (Phase 5)
+
+- **Region / Warehouse / Carrier / Route / Shipment / Event / Inventory** — first-class graph nodes with edges `LOCATED_IN`, `OPERATES`, `FULFILLED_BY`, `FROM`/`TO`, `CARRIED_BY`, `VIA`, `CONTAINS`, `AFFECTS_REGION`, `AFFECTS_CATEGORY`, `HELD_AT`, `OF_SKU`.
+- **Korean map** — react-simple-maps + d3-geo, `web/public/korea-provinces.json` (KOSTAT 17 시도, 146 KB), 5:4 viewBox preserves peninsula aspect at lat~36°N.
+- **Inventory model** — first-class `Inventory` node (`{wh_id, sku_id, on_hand_pallets, capacity_pallets, days_of_cover, temperature}`) so graph traversal, validation, and time-series extension all stay natural. Avoids edge-property gotchas in openCypher.
+- **Logistics agent tools** — `inventory_lookup`, `nearest_warehouses` (haversine k-NN), `shortest_path` (BFS over Route edges) registered in `api/services/agent.py:TOOL_SPECS`, callable from both the main chat (B) and the inline panel on `/logistics`.
+
+### AI & Memory
+
+- **Bedrock Sonnet 4.6** — chat and insights (project decision: never Haiku Lite).
+- **Bedrock Cohere embed-v4** — query and document embeddings.
+- **Bedrock Cohere rerank-v3** — cross-region inference profile, optional with RRF fallback.
+- **Bedrock Knowledge Base** (`TOSRFOPOBK`) — managed RAG retrieval over `raw-docs`.
+- **Bedrock Guardrails** (`avnceb3uvwr8`) — input/output PII scrub for chat and insights.
+- **AgentCore Memory** (`ontology_retail_dev_memory-eNaJ35CVf3`) — short-term session events + long-term user-namespaced facts, 7-day TTL.
+- **AgentCore Code Interpreter** — Firecracker microVM for matplotlib chart rendering with bundled NanumGothic font.
+
+### Observability & Safety
+
+- **CloudTrail** — management events only (data events for Bedrock are not a CloudTrail event type).
+- **CloudWatch Logs** — `/aws/ecs/ontology-retail-dev/api`, `/aws/ecs/ontology-retail-dev/web`, AWS WAF logs.
+- **ALB Access Logs** — S3-stored, lifecycle to Glacier after 30 days.
+- **Cost Anomaly Detection** — `Default-Services-Monitor` subscription with email notification.
+- **Account-level CloudWatch Alarms** — Bedrock Converse error rate, Neptune CPU, OpenSearch search-rate.
+
+## Full Architecture Diagram
+
+```
+                   ┌──────────────────────────┐
+                   │  Browser                 │
+                   │  retail-ontology.        │
+                   │  whchoi.net              │
+                   └────────────┬─────────────┘
+                                │ HTTPS (ACM *.whchoi.net)
+                                ▼
+                   ┌──────────────────────────┐
+                   │  CloudFront              │
+                   │  + Lambda@Edge AuthFn    │◀──┐
+                   │  + X-Origin-Auth-Token   │   │ 302 redirect
+                   └────────────┬─────────────┘   │
+                                │ HTTP origin     │
+                                │ (CF SG-locked)  │
+                                ▼                 │
+                   ┌──────────────────────────┐   │
+                   │  ALB (HTTP:80)           │   │
+                   └─────┬─────────────┬──────┘   │
+                         │             │          │
+                  /api/* │             │ /*       │
+                         ▼             ▼          │
+              ┌──────────────┐  ┌──────────────┐  │
+              │ API service  │  │ Web service  │  │
+              │ FastAPI      │  │ Next.js 14   │  │
+              │ Fargate ARM64│  │ Fargate ARM64│  │
+              └──────┬───────┘  └──────────────┘  │
+                     │                            │
+       ┌─────────────┼──────────────┬─────────────┤
+       │             │              │             │
+       ▼             ▼              ▼             ▼
+  ┌────────┐   ┌──────────┐   ┌────────────┐  ┌──────────┐
+  │Neptune │   │OpenSearch│   │  Bedrock   │  │ Cognito  │
+  │ Cypher │   │BM25 + KNN│   │ Sonnet 4.6 │  │ User Pool│
+  └────────┘   └──────────┘   │ Embed/Rerank│ └──────────┘
+                              │ Guardrails │
+                              │ AgentCore  │
+                              │ Memory + CI│
+                              └────────────┘
+```
+
+## Data Flow Summary
+
+User → CloudFront (auth) → ALB → API → (Neptune + OpenSearch + Bedrock + AgentCore Memory) → SSE stream → Web
+
+## Infrastructure Tables
+
+| Stack (CDK) | Resources |
+|-------------|-----------|
+| OntologyRetailNetwork | VPC, subnets (public/private), NAT, VPC endpoints |
+| OntologyRetailData | Neptune cluster, OpenSearch collection, Aurora cluster, S3 buckets, KMS keys |
+| OntologyRetailCompute | ECS cluster + services (api/web), ALB, ECR repos, IAM task roles |
+| OntologyRetailAi | Bedrock guardrail, Knowledge Base, AgentCore Memory store |
+| OntologyRetailEdge | CloudFront, Lambda@Edge auth function, Cognito user pool + client + domain |
+| OntologyRetailObservability | CloudTrail, CloudWatch alarms, Cost Anomaly subscription |
+
+## Key Design Decisions
+
+- **Single image, two roles** — the API container ships with `data/load.py` and `scripts/` so the same image runs as either the API server or a one-shot loader via command override. Avoids a second ECR repo and second build pipeline.
+- **SHA-pinned task definitions** — `:latest` mutability bites ECS deploys; we pin a SHA tag in each new task-definition revision so rollouts are deterministic.
+- **Lambda@Edge stable-ID hardcoding** — Lambda@Edge cannot read SSM/Secrets, so user-pool/client IDs are baked at synth time. CDK outputs `LambdaEdgeUserPoolId` / `LambdaEdgeClientId` for drift detection. See [ADR-0003](decisions/0003-lambda-edge-stable-id-hardcode-strategy.md).
+- **AgentCore Memory via AwsCustomResource** — four-layer-explicit pattern (SDK package + IAM prefix + API parameters + name regex). See [ADR-0001](decisions/0001-agentcore-memory-via-aws-custom-resource.md).
+- **CloudTrail via L1 CfnTrail** — CDK 2.150 L2 `cloudtrail.Trail` emits empty `EventSelectors`. Workaround documented in [ADR-0002](decisions/0002-cloudtrail-via-cfntrail-with-manual-bucket-policy.md).
+- **Cognito UserPoolClient CDK-only authoring** — `update-user-pool-client` has PUT semantics; drive every config change through `cdk deploy edge`. See [ADR-0004](decisions/0004-cognito-user-pool-client-cdk-driven.md).
+- **Sonnet 4.6 only** — chat and insights both use Sonnet 4.6 (env `BEDROCK_CHAT_MODEL_ID`). Haiku Lite was tested and rejected for analytical voice quality.
+
+## Operations
+
+- Smoke tests + verification commands: see [docs/onboarding.md](onboarding.md)
+- Loader runs (Neptune + OpenSearch reload): see [docs/runbooks/](runbooks/)
+- Auth domain changes: 4 surfaces must align — DNS, CF alias, Cognito callback, API `PUBLIC_DOMAIN` env. Lambda@Edge derives `redirect_uri` from request `Host` header so it adapts automatically to new aliases.
+- Security trade-offs and production migration plan: [SECURITY.md](../SECURITY.md)
+
+---
+
+# 한국어
+
+## 시스템 개요
+
+`ontology-retail`은 한국 리테일/CPG 지식그래프를 위한 다층 AWS-네이티브 데모입니다. Fargate의 FastAPI 백엔드가 Bedrock + AgentCore + Neptune + OpenSearch를 앞단에서 묶고, Fargate의 Next.js 14 프런트엔드가 시나리오별 UI를 제공합니다. CloudFront + Lambda@Edge 쿠키 인증이 전체 표면을 감싸고 Cognito 사용자 풀이 접근을 통제합니다.
+
+8개 wow 시나리오(A–H)는 의미 검색, 메모리 기반 대화형 에이전트, MD 인사이트, 페르소나 매칭, 안전성, 대체재, 가격·가용성, 물류 네트워크에 걸쳐 있습니다. 온톨로지에 물류 계층(Region, Warehouse, Carrier, Route, Shipment, Event, Inventory)이 추가되었고, 한국 시도 choropleth 지도(react-simple-maps + d3-geo + KOSTAT 행정구역 GeoJSON)가 포함됩니다.
+
+## 계층별 컴포넌트
+
+### Edge & Auth
+
+- **CloudFront 배포** (`EWRJ379EBN96U`) — TLS 종단, viewer/origin 캐싱, 커스텀 도메인 `retail-ontology.whchoi.net` + ACM `*.whchoi.net` 인증서.
+- **Lambda@Edge** (`AuthEdgeFn`, us-east-1 `experimental.EdgeFunction`) — 쿠키 기반 인증 검사, 미인증 viewer는 Cognito Hosted UI로 302 리다이렉트.
+- **Cognito User Pool** (`ap-northeast-2_RcjIQPFSz`) — RS256 JWT, OAuth code grant, 이메일=사용자명, 데모용 8자 비밀번호 정책.
+- **Origin Auth** — CloudFront가 Secrets Manager에 저장된 `X-Origin-Auth-Token` 헤더를 ALB로 전달, ALB SG는 `com.amazonaws.global.cloudfront.origin-facing`에 한정.
+
+### Compute
+
+- **Web 서비스** (ECS Fargate ARM64) — Next.js 14 standalone 빌드, ALB 뒤 2-복제.
+- **API 서비스** (ECS Fargate ARM64) — FastAPI + uvicorn, 2-복제, 동일 이미지가 command override로 일회성 로더로도 동작.
+- **ALB** (`ontology-retail-dev-alb`) — HTTP-80 origin (데모 단계에서는 CloudFront에서 TLS 종단; production 마이그레이션 계획은 SECURITY.md).
+
+### Data & Search
+
+- **Neptune 클러스터** (`ontology-retail-dev-neptune`) — 개발 사이즈 단일 인스턴스, openCypher 엔드포인트, SigV4 IAM 인증. 19개 노드 클래스(상거래 + 물류 + 이벤트), 약 5,000 노드 / 10,000 엣지가 ECS 일회성 로더로 적재됨.
+- **OpenSearch Serverless 컬렉션** (`5savsydhue1own3tfj0d`) — BM25용 Nori 한국어 분석기, Cohere `embed-v4` 1024차원 KNN, RRF 융합.
+- **Aurora PostgreSQL Serverless v2** (`ontology-retail-dev-aurora`) — 세션 메타 + Cognito 연결.
+- **S3 버킷** — `raw-docs` (KB 적재 소스), `uploads` (사용자 업로드), `synthetic-data` (로더 소스 — 상품/리뷰/페르소나 + regions/warehouses/carriers/routes/shipments/events/inventory), `ontology-snapshots` (버전 관리된 온톨로지).
+
+### 물류 & 이벤트 (Phase 5)
+
+- **Region / Warehouse / Carrier / Route / Shipment / Event / Inventory** — first-class 그래프 노드 + 엣지 `LOCATED_IN`, `OPERATES`, `FULFILLED_BY`, `FROM`/`TO`, `CARRIED_BY`, `VIA`, `CONTAINS`, `AFFECTS_REGION`, `AFFECTS_CATEGORY`, `HELD_AT`, `OF_SKU`.
+- **한국 지도** — react-simple-maps + d3-geo, `web/public/korea-provinces.json` (KOSTAT 17 시도, 146 KB), 5:4 viewBox로 위도 ~36°N에서 한반도 비율 자연 유지.
+- **Inventory 모델** — `Inventory`를 first-class 노드(`{wh_id, sku_id, on_hand_pallets, capacity_pallets, days_of_cover, temperature}`)로 둬서 그래프 워크 / 검증 / 시계열 확장 모두 자연스럽게. openCypher의 엣지 속성 제약을 우회.
+- **물류 에이전트 도구** — `inventory_lookup`, `nearest_warehouses` (haversine k-NN), `shortest_path` (Route 엣지 위 BFS)를 `api/services/agent.py:TOOL_SPECS`에 등록 — 메인 채팅(B)과 `/logistics` 인라인 패널 양쪽에서 호출 가능.
+
+### AI & Memory
+
+- **Bedrock Sonnet 4.6** — 채팅·인사이트 (프로젝트 결정: Haiku Lite 사용 안 함).
+- **Bedrock Cohere embed-v4** — 쿼리·문서 임베딩.
+- **Bedrock Cohere rerank-v3** — cross-region inference profile, 실패 시 RRF 순위로 fallback.
+- **Bedrock Knowledge Base** (`TOSRFOPOBK`) — `raw-docs` 위 매니지드 RAG 검색.
+- **Bedrock Guardrails** (`avnceb3uvwr8`) — 채팅·인사이트 입출력 PII 스크럽.
+- **AgentCore Memory** (`ontology_retail_dev_memory-eNaJ35CVf3`) — short-term 세션 이벤트 + long-term 사용자별 사실, 7일 TTL.
+- **AgentCore Code Interpreter** — matplotlib 차트 렌더링용 Firecracker microVM, 번들된 NanumGothic 폰트.
+
+### Observability & Safety
+
+- **CloudTrail** — management 이벤트만 (Bedrock data 이벤트는 CloudTrail 이벤트 타입이 아님).
+- **CloudWatch Logs** — `/aws/ecs/ontology-retail-dev/api`, `/aws/ecs/ontology-retail-dev/web`, AWS WAF 로그.
+- **ALB Access Logs** — S3 보관, 30일 후 Glacier 라이프사이클.
+- **Cost Anomaly Detection** — `Default-Services-Monitor` 구독, 이메일 알림.
+- **계정 레벨 CloudWatch Alarms** — Bedrock Converse 에러율, Neptune CPU, OpenSearch search-rate.
+
+## 전체 아키텍처 다이어그램
+
+```
+                   ┌──────────────────────────┐
+                   │  브라우저                │
+                   │  retail-ontology.        │
+                   │  whchoi.net              │
+                   └────────────┬─────────────┘
+                                │ HTTPS (ACM *.whchoi.net)
+                                ▼
+                   ┌──────────────────────────┐
+                   │  CloudFront              │
+                   │  + Lambda@Edge AuthFn    │◀──┐
+                   │  + X-Origin-Auth-Token   │   │ 302 리다이렉트
+                   └────────────┬─────────────┘   │
+                                │ HTTP origin     │
+                                │ (CF SG 잠금)    │
+                                ▼                 │
+                   ┌──────────────────────────┐   │
+                   │  ALB (HTTP:80)           │   │
+                   └─────┬─────────────┬──────┘   │
+                         │             │          │
+                  /api/* │             │ /*       │
+                         ▼             ▼          │
+              ┌──────────────┐  ┌──────────────┐  │
+              │ API 서비스   │  │ Web 서비스   │  │
+              │ FastAPI      │  │ Next.js 14   │  │
+              │ Fargate ARM64│  │ Fargate ARM64│  │
+              └──────┬───────┘  └──────────────┘  │
+                     │                            │
+       ┌─────────────┼──────────────┬─────────────┤
+       │             │              │             │
+       ▼             ▼              ▼             ▼
+  ┌────────┐   ┌──────────┐   ┌────────────┐  ┌──────────┐
+  │Neptune │   │OpenSearch│   │  Bedrock   │  │ Cognito  │
+  │ Cypher │   │BM25 + KNN│   │ Sonnet 4.6 │  │User Pool │
+  └────────┘   └──────────┘   │Embed/Rerank│  └──────────┘
+                              │ Guardrails │
+                              │ AgentCore  │
+                              │ Memory + CI│
+                              └────────────┘
+```
+
+## 데이터 플로우 요약
+
+사용자 → CloudFront (인증) → ALB → API → (Neptune + OpenSearch + Bedrock + AgentCore Memory) → SSE 스트림 → Web
+
+## 인프라 테이블
+
+| 스택 (CDK) | 리소스 |
+|------------|--------|
+| OntologyRetailNetwork | VPC, 서브넷(public/private), NAT, VPC 엔드포인트 |
+| OntologyRetailData | Neptune 클러스터, OpenSearch 컬렉션, Aurora 클러스터, S3 버킷, KMS 키 |
+| OntologyRetailCompute | ECS 클러스터 + 서비스(api/web), ALB, ECR 리포, IAM 태스크 롤 |
+| OntologyRetailAi | Bedrock guardrail, Knowledge Base, AgentCore Memory store |
+| OntologyRetailEdge | CloudFront, Lambda@Edge 인증 함수, Cognito 사용자 풀 + 클라이언트 + 도메인 |
+| OntologyRetailObservability | CloudTrail, CloudWatch 알람, Cost Anomaly 구독 |
+
+## 핵심 설계 결정
+
+- **단일 이미지, 두 가지 역할** — API 컨테이너가 `data/load.py`와 `scripts/`를 함께 번들하기 때문에 동일 이미지가 command override로 API 서버 또는 일회성 로더로 모두 작동합니다. 두 번째 ECR 리포 + 두 번째 빌드 파이프라인을 피합니다. ([ADR pending](decisions/0001-single-image-two-roles.md))
+- **SHA-pinned 태스크 정의** — `:latest` mutability가 ECS 배포에서 문제를 일으키므로 새 태스크 정의 revision마다 SHA 태그를 명시 — 결정적 롤아웃.
+- **하드코딩된 Cognito ID를 가진 Lambda@Edge inline 코드** — Lambda@Edge는 SSM/Secrets에 접근할 수 없어 사용자 풀/클라이언트 ID를 synth 시점에 baked in. CDK가 `LambdaEdgeUserPoolId` / `LambdaEdgeClientId`를 drift 감지용으로 출력합니다.
+- **AgentCore Memory CDK gotchas** — AwsCustomResource v3 explicit form + fromStatements + underscore-only names 사용 (`agentcore_gotchas.md`에 기록).
+- **Sonnet 4.6만 사용** — 채팅·인사이트 모두 Sonnet 4.6 (env `BEDROCK_CHAT_MODEL_ID`). Haiku Lite는 분석 어조 품질 문제로 기각.
+
+> 4개의 기술 결정([ADR-0001 AgentCore Memory](decisions/0001-agentcore-memory-via-aws-custom-resource.md), [0002 CloudTrail](decisions/0002-cloudtrail-via-cfntrail-with-manual-bucket-policy.md), [0003 Lambda@Edge](decisions/0003-lambda-edge-stable-id-hardcode-strategy.md), [0004 Cognito](decisions/0004-cognito-user-pool-client-cdk-driven.md))이 `docs/decisions/`에 Context/Decision/Alternatives/Consequences 형식으로 정리되어 있습니다.
+
+## 운영
+
+- 스모크 테스트 + 검증 명령어: [docs/onboarding.md](onboarding.md)
+- 로더 실행 (Neptune + OpenSearch 재적재): [docs/runbooks/](runbooks/)
+- 인증 도메인 변경: 4개 surface 정렬 필요 — DNS, CF alias, Cognito callback, API `PUBLIC_DOMAIN` env. Lambda@Edge는 request `Host` 헤더로 `redirect_uri`를 유도하므로 새 alias에 자동으로 적응합니다.
+- 보안 트레이드오프 및 production 마이그레이션 계획: [SECURITY.md](../SECURITY.md)
