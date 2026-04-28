@@ -101,8 +101,8 @@ open https://<cloudfront-distribution>.cloudfront.net
 | `OPENSEARCH_ENDPOINT` | OpenSearch Serverless collection endpoint | resolved from CDK output |
 | `OPENSEARCH_INDEX` | Vector + BM25 index name | `ontology-retail-dev-kb-index` |
 | `BEDROCK_CHAT_MODEL_ID` | Foundation model for chat and insights | `global.anthropic.claude-sonnet-4-6` |
-| `BEDROCK_KB_ID` | Bedrock Knowledge Base ID | `TOSRFOPOBK` |
-| `BEDROCK_GUARDRAIL_ID` | Bedrock Guardrails ID | `avnceb3uvwr8` |
+| `BEDROCK_KB_ID` | Bedrock Knowledge Base ID | resolved from CDK output |
+| `BEDROCK_GUARDRAIL_ID` | Bedrock Guardrails ID | resolved from CDK output |
 | `BEDROCK_RERANKER_INFERENCE_PROFILE_ARN` | Cross-region inference profile for reranker | (set per environment) |
 | `BEDROCK_EMBED_MODEL_ID` | Embedding model | `global.cohere.embed-v4:0` |
 | `AGENTCORE_MEMORY_ID` | AgentCore Memory store ID | resolved from CDK output |
@@ -292,8 +292,8 @@ open https://<cloudfront-distribution>.cloudfront.net
 | `OPENSEARCH_ENDPOINT` | OpenSearch Serverless 컬렉션 엔드포인트 | CDK output에서 자동 해석 |
 | `OPENSEARCH_INDEX` | 벡터 + BM25 인덱스 이름 | `ontology-retail-dev-kb-index` |
 | `BEDROCK_CHAT_MODEL_ID` | 채팅·인사이트용 Foundation 모델 | `global.anthropic.claude-sonnet-4-6` |
-| `BEDROCK_KB_ID` | Bedrock Knowledge Base ID | `TOSRFOPOBK` |
-| `BEDROCK_GUARDRAIL_ID` | Bedrock Guardrails ID | `avnceb3uvwr8` |
+| `BEDROCK_KB_ID` | Bedrock Knowledge Base ID | resolved from CDK output |
+| `BEDROCK_GUARDRAIL_ID` | Bedrock Guardrails ID | resolved from CDK output |
 | `BEDROCK_RERANKER_INFERENCE_PROFILE_ARN` | 리랭커 cross-region inference profile | 환경별 설정 |
 | `BEDROCK_EMBED_MODEL_ID` | 임베딩 모델 | `global.cohere.embed-v4:0` |
 | `AGENTCORE_MEMORY_ID` | AgentCore Memory store ID | CDK output에서 자동 해석 |

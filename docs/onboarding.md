@@ -4,7 +4,7 @@ This guide brings a new contributor from "I have a laptop and AWS access" to "I 
 
 ## Prerequisites
 
-- AWS account access for `061525506239` with permissions to read CDK outputs, push to ECR, and update ECS services. SSO via IAM Identity Center is recommended.
+- AWS account access for `<account-id>` with permissions to read CDK outputs, push to ECR, and update ECS services. SSO via IAM Identity Center is recommended.
 - AWS CLI v2 (`aws --version` ≥ 2.20)
 - Node.js 20.x (`node -v`)
 - Python 3.12 (`python3 --version`)
@@ -51,7 +51,7 @@ aws bedrock list-foundation-models --region ap-northeast-2 \
   --query 'modelSummaries[?contains(modelId, `claude-sonnet-4-6`)]'
 
 # Neptune (must run from inside the VPC; will fail from a laptop — that's expected)
-nslookup ontology-retail-dev-neptune.cluster-cd4nhqgutps9.ap-northeast-2.neptune.amazonaws.com
+nslookup ontology-retail-dev-neptune.cluster-<cluster-suffix>.ap-northeast-2.neptune.amazonaws.com
 ```
 
 ## Run Tests
@@ -121,7 +121,7 @@ cat > /tmp/loader-overrides.json <<EOF
     "name": "api",
     "command": ["python","-m","data.load","--neptune","--opensearch","--from-s3"],
     "environment": [
-      {"name": "SYNTHETIC_DATA_BUCKET", "value": "ontology-retail-dev-synthetic-data-061525506239"}
+      {"name": "SYNTHETIC_DATA_BUCKET", "value": "ontology-retail-dev-synthetic-data-<account-id>"}
     ]
   }]
 }

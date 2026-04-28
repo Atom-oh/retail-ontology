@@ -28,8 +28,8 @@ All infrastructure for the demo, organized as six CDK stacks. Targets `ap-northe
 cd infra-cdk
 
 # Initial bootstrap (per-account, per-region)
-npx cdk bootstrap aws://061525506239/ap-northeast-2
-npx cdk bootstrap aws://061525506239/us-east-1   # for Lambda@Edge
+npx cdk bootstrap aws://<account-id>/ap-northeast-2
+npx cdk bootstrap aws://<account-id>/us-east-1   # for Lambda@Edge
 
 # Synth all stacks
 npx cdk synth

@@ -18,9 +18,9 @@ Eight wow scenarios (A–H) span semantic search, conversational agent with memo
 
 ### Edge & Auth
 
-- **CloudFront distribution** (`EWRJ379EBN96U`) — TLS termination, viewer/origin caching, custom domain `retail-ontology.whchoi.net` with ACM `*.whchoi.net` cert.
+- **CloudFront distribution** (`<distribution-id>`) — TLS termination, viewer/origin caching, custom domain `retail-ontology.whchoi.net` with ACM `*.whchoi.net` cert.
 - **Lambda@Edge** (`AuthEdgeFn`, us-east-1 `experimental.EdgeFunction`) — cookie-based auth check, redirects unauthenticated viewers to Cognito Hosted UI.
-- **Cognito User Pool** (`ap-northeast-2_RcjIQPFSz`) — RS256 JWTs, OAuth code grant, email-as-username, demo password policy (8 chars).
+- **Cognito User Pool** (`<user-pool-id>`) — RS256 JWTs, OAuth code grant, email-as-username, demo password policy (8 chars).
 - **Origin Auth** — CloudFront forwards a Secrets-Manager-backed `X-Origin-Auth-Token` header to ALB; ALB SG restricts ingress to `com.amazonaws.global.cloudfront.origin-facing`.
 
 ### Compute
@@ -32,7 +32,7 @@ Eight wow scenarios (A–H) span semantic search, conversational agent with memo
 ### Data & Search
 
 - **Neptune cluster** (`ontology-retail-dev-neptune`) — single-instance dev sizing, openCypher endpoint, IAM auth via SigV4. 19 node classes (commerce + logistics + events) with ~5,000 nodes, ~10,000 edges loaded via the one-shot ECS loader.
-- **OpenSearch Serverless collection** (`5savsydhue1own3tfj0d`) — Nori Korean analyzer for BM25, Cohere `embed-v4` 1024-dim KNN, RRF fusion.
+- **OpenSearch Serverless collection** (`<opensearch-collection-id>`) — Nori Korean analyzer for BM25, Cohere `embed-v4` 1024-dim KNN, RRF fusion.
 - **Aurora PostgreSQL Serverless v2** (`ontology-retail-dev-aurora`) — session metadata + Cognito linkage.
 - **S3 buckets** — `raw-docs` (KB ingestion source), `uploads` (user uploads), `synthetic-data` (loader source — products/reviews/personas + regions/warehouses/carriers/routes/shipments/events/inventory), `ontology-snapshots` (versioned ontology).
 
@@ -48,9 +48,9 @@ Eight wow scenarios (A–H) span semantic search, conversational agent with memo
 - **Bedrock Sonnet 4.6** — chat and insights (project decision: never Haiku Lite).
 - **Bedrock Cohere embed-v4** — query and document embeddings.
 - **Bedrock Cohere rerank-v3** — cross-region inference profile, optional with RRF fallback.
-- **Bedrock Knowledge Base** (`TOSRFOPOBK`) — managed RAG retrieval over `raw-docs`.
-- **Bedrock Guardrails** (`avnceb3uvwr8`) — input/output PII scrub for chat and insights.
-- **AgentCore Memory** (`ontology_retail_dev_memory-eNaJ35CVf3`) — short-term session events + long-term user-namespaced facts, 7-day TTL.
+- **Bedrock Knowledge Base** (`<knowledge-base-id>`) — managed RAG retrieval over `raw-docs`.
+- **Bedrock Guardrails** (`<guardrail-id>`) — input/output PII scrub for chat and insights.
+- **AgentCore Memory** (`ontology_retail_dev_memory-<suffix>`) — short-term session events + long-term user-namespaced facts, 7-day TTL.
 - **AgentCore Code Interpreter** — Firecracker microVM for matplotlib chart rendering with bundled NanumGothic font.
 
 ### Observability & Safety
@@ -151,9 +151,9 @@ User → CloudFront (auth) → ALB → API → (Neptune + OpenSearch + Bedrock +
 
 ### Edge & Auth
 
-- **CloudFront 배포** (`EWRJ379EBN96U`) — TLS 종단, viewer/origin 캐싱, 커스텀 도메인 `retail-ontology.whchoi.net` + ACM `*.whchoi.net` 인증서.
+- **CloudFront 배포** (`<distribution-id>`) — TLS 종단, viewer/origin 캐싱, 커스텀 도메인 `retail-ontology.whchoi.net` + ACM `*.whchoi.net` 인증서.
 - **Lambda@Edge** (`AuthEdgeFn`, us-east-1 `experimental.EdgeFunction`) — 쿠키 기반 인증 검사, 미인증 viewer는 Cognito Hosted UI로 302 리다이렉트.
-- **Cognito User Pool** (`ap-northeast-2_RcjIQPFSz`) — RS256 JWT, OAuth code grant, 이메일=사용자명, 데모용 8자 비밀번호 정책.
+- **Cognito User Pool** (`<user-pool-id>`) — RS256 JWT, OAuth code grant, 이메일=사용자명, 데모용 8자 비밀번호 정책.
 - **Origin Auth** — CloudFront가 Secrets Manager에 저장된 `X-Origin-Auth-Token` 헤더를 ALB로 전달, ALB SG는 `com.amazonaws.global.cloudfront.origin-facing`에 한정.
 
 ### Compute
@@ -165,7 +165,7 @@ User → CloudFront (auth) → ALB → API → (Neptune + OpenSearch + Bedrock +
 ### Data & Search
 
 - **Neptune 클러스터** (`ontology-retail-dev-neptune`) — 개발 사이즈 단일 인스턴스, openCypher 엔드포인트, SigV4 IAM 인증. 19개 노드 클래스(상거래 + 물류 + 이벤트), 약 5,000 노드 / 10,000 엣지가 ECS 일회성 로더로 적재됨.
-- **OpenSearch Serverless 컬렉션** (`5savsydhue1own3tfj0d`) — BM25용 Nori 한국어 분석기, Cohere `embed-v4` 1024차원 KNN, RRF 융합.
+- **OpenSearch Serverless 컬렉션** (`<opensearch-collection-id>`) — BM25용 Nori 한국어 분석기, Cohere `embed-v4` 1024차원 KNN, RRF 융합.
 - **Aurora PostgreSQL Serverless v2** (`ontology-retail-dev-aurora`) — 세션 메타 + Cognito 연결.
 - **S3 버킷** — `raw-docs` (KB 적재 소스), `uploads` (사용자 업로드), `synthetic-data` (로더 소스 — 상품/리뷰/페르소나 + regions/warehouses/carriers/routes/shipments/events/inventory), `ontology-snapshots` (버전 관리된 온톨로지).
 
@@ -181,9 +181,9 @@ User → CloudFront (auth) → ALB → API → (Neptune + OpenSearch + Bedrock +
 - **Bedrock Sonnet 4.6** — 채팅·인사이트 (프로젝트 결정: Haiku Lite 사용 안 함).
 - **Bedrock Cohere embed-v4** — 쿼리·문서 임베딩.
 - **Bedrock Cohere rerank-v3** — cross-region inference profile, 실패 시 RRF 순위로 fallback.
-- **Bedrock Knowledge Base** (`TOSRFOPOBK`) — `raw-docs` 위 매니지드 RAG 검색.
-- **Bedrock Guardrails** (`avnceb3uvwr8`) — 채팅·인사이트 입출력 PII 스크럽.
-- **AgentCore Memory** (`ontology_retail_dev_memory-eNaJ35CVf3`) — short-term 세션 이벤트 + long-term 사용자별 사실, 7일 TTL.
+- **Bedrock Knowledge Base** (`<knowledge-base-id>`) — `raw-docs` 위 매니지드 RAG 검색.
+- **Bedrock Guardrails** (`<guardrail-id>`) — 채팅·인사이트 입출력 PII 스크럽.
+- **AgentCore Memory** (`ontology_retail_dev_memory-<suffix>`) — short-term 세션 이벤트 + long-term 사용자별 사실, 7일 TTL.
 - **AgentCore Code Interpreter** — matplotlib 차트 렌더링용 Firecracker microVM, 번들된 NanumGothic 폰트.
 
 ### Observability & Safety

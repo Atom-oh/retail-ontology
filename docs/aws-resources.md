@@ -6,7 +6,7 @@
 
 ## 0. 전체 구성 한 눈에
 
-- **계정**: `061525506239` (production-track demo)
+- **계정**: `<account-id>` (production-track demo)
 - **Primary 리전**: `ap-northeast-2` (Seoul) — 대부분 자원
 - **Edge 리전**: `us-east-1` — Lambda@Edge + ACM 인증서 (CloudFront 요건)
 - **CDK 스택 6개**: `Network → Data → Ai → Compute → Edge + Observability`
@@ -16,7 +16,7 @@
 
 ## 1. Edge & Auth — 사용자 진입 계층
 
-### CloudFront Distribution (`EWRJ379EBN96U`)
+### CloudFront Distribution (`<distribution-id>`)
 
 브라우저가 가장 먼저 만나는 layer. 기능:
 
@@ -33,7 +33,7 @@ CloudFront viewer-request 트리거:
 - **us-east-1 강제 배치** — Lambda@Edge 요건. CDK `experimental.EdgeFunction`이 CloudFront와 별도 sibling stack 생성
 - **[ADR-0003](decisions/0003-lambda-edge-stable-id-hardcode-strategy.md)**: Cognito 식별자(user_pool_id, client_id, domain)를 inline 코드에 hardcode (Lambda@Edge가 SSM/Secrets 못 읽기 때문). drift detection은 CDK output(`UserPoolId`, `UserPoolClientId`, `UserPoolDomain`)이 매 deploy 시 노출
 
-### Cognito User Pool (`ap-northeast-2_RcjIQPFSz`)
+### Cognito User Pool (`<user-pool-id>`)
 
 신원 발행·검증 layer:
 
@@ -105,7 +105,7 @@ Fargate 모드, 2개 서비스 호스팅.
 - **Private subnet 전용** — laptop에서 직접 접근 불가, ECS one-shot loader를 같은 SG에서 실행
 - **모든 Cypher**: `parameters={...}` keyword arg로 전달 (포지셔널은 TypeError, 인젝션 방지). 자세한 규약은 [.claude/skills/cypher-conventions.md](../.claude/skills/cypher-conventions.md)
 
-### OpenSearch Serverless (`5savsydhue1own3tfj0d`)
+### OpenSearch Serverless (`<opensearch-collection-id>`)
 
 하이브리드 검색의 BM25 + KNN layer.
 
@@ -153,19 +153,19 @@ Fargate 모드, 2개 서비스 호스팅.
 
 > Sonnet 4.6은 **never Haiku-Lite** ([CLAUDE.md](../CLAUDE.md) 규칙). 채팅·인사이트 모두 동일 모델 — analytical voice quality 일관성 유지.
 
-### Bedrock Knowledge Base (`TOSRFOPOBK`)
+### Bedrock Knowledge Base (`<knowledge-base-id>`)
 
 - `raw-docs` S3 위에 managed RAG
 - 자동 청킹·임베딩·OpenSearch 적재
 - API의 `kb_lookup` agent tool로 호출
 
-### Bedrock Guardrails (`avnceb3uvwr8`)
+### Bedrock Guardrails (`<guardrail-id>`)
 
 - Input scrub: 채팅·검색 — PII / harmful content 거름
 - Output scrub: 인사이트 answer — 부적절 콘텐츠 차단
 - 실패는 non-fatal (요청 자체를 막지 않음, 로그만)
 
-### AgentCore Memory (`ontology_retail_dev_memory-eNaJ35CVf3`)
+### AgentCore Memory (`ontology_retail_dev_memory-<suffix>`)
 
 **시나리오 B 다회차 채팅의 핵심.**
 

@@ -44,8 +44,8 @@ export BEDROCK_KB_ID=XXXXXXXXXX
 export BEDROCK_GUARDRAIL_ID=XXXXXXXXXX
 export BEDROCK_GUARDRAIL_VERSION=1
 export AGENTCORE_MEMORY_ID=mem_xxx
-export RAW_DOCS_BUCKET=ontology-retail-dev-raw-docs-061525506239
-export UPLOADS_BUCKET=ontology-retail-dev-uploads-061525506239
+export RAW_DOCS_BUCKET=ontology-retail-dev-raw-docs-<account-id>
+export UPLOADS_BUCKET=ontology-retail-dev-uploads-<account-id>
 
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -53,7 +53,7 @@ uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ## Build & push to ECR
 
 ```bash
-ACCOUNT=061525506239
+ACCOUNT=<account-id>
 REGION=ap-northeast-2
 REPO=$ACCOUNT.dkr.ecr.$REGION.amazonaws.com/ontology-retail-dev-api
 

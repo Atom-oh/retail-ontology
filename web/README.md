@@ -51,7 +51,7 @@ npm run dev
 ## Build & push to ECR
 
 ```bash
-ACCOUNT=061525506239
+ACCOUNT=<account-id>
 REGION=ap-northeast-2
 REPO=$ACCOUNT.dkr.ecr.$REGION.amazonaws.com/ontology-retail-dev-web
 
