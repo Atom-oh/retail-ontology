@@ -131,6 +131,7 @@ User → CloudFront (auth) → ALB → API → (Neptune + OpenSearch + Bedrock +
 
 ## Operations
 
+- Per-resource AWS service deep dive: [docs/aws-resources.md](aws-resources.md)
 - Smoke tests + verification commands: see [docs/onboarding.md](onboarding.md)
 - Loader runs (Neptune + OpenSearch reload): see [docs/runbooks/](runbooks/)
 - Auth domain changes: 4 surfaces must align — DNS, CF alias, Cognito callback, API `PUBLIC_DOMAIN` env. Lambda@Edge derives `redirect_uri` from request `Host` header so it adapts automatically to new aliases.
@@ -263,6 +264,7 @@ User → CloudFront (auth) → ALB → API → (Neptune + OpenSearch + Bedrock +
 
 ## 운영
 
+- 자원별 AWS 서비스 상세: [docs/aws-resources.md](aws-resources.md)
 - 스모크 테스트 + 검증 명령어: [docs/onboarding.md](onboarding.md)
 - 로더 실행 (Neptune + OpenSearch 재적재): [docs/runbooks/](runbooks/)
 - 인증 도메인 변경: 4개 surface 정렬 필요 — DNS, CF alias, Cognito callback, API `PUBLIC_DOMAIN` env. Lambda@Edge는 request `Host` 헤더로 `redirect_uri`를 유도하므로 새 alias에 자동으로 적응합니다.
