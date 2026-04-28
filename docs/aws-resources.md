@@ -327,6 +327,71 @@ ECS tasks가 AWS 서비스를 NAT 경유 없이 호출:
 
 ---
 
+## 11. 데이터 소스
+
+이 데모의 데이터는 **3축 — 표준 매핑 / 공공 데이터 / 합성 데이터**로 구성됩니다. 외부 권위 데이터를 한국어 도메인에 *bridging*하는 게 신뢰도의 핵심입니다.
+
+### 11.1 외부 표준 매핑 (`ontology/mappings/`)
+
+외부 표준 ID → 한국어 도메인 라벨 변환표. 모두 CSV/JSON으로 직접 검토 가능하며, `data/public/<adapter>.py` 어댑터가 로딩·정규화 책임을 짐.
+
+| 표준 | 출처 | 매핑 파일 | 어댑터 | 용도 |
+|---|---|---|---|---|
+| **KFDA (식약처)** 식품 카테고리 | 식품의약품안전처 식품유형 분류체계 | `gs1-gpc-to-kfda-food.csv` (GS1↔KFDA bridge 포함) | [`data/public/kfda.py`](../data/public/kfda.py) | 시나리오 E (안전성 렌즈 — 임산부/영유아 차단 카테고리), `/validation` 검증 리포트의 GS1+KFDA 커버리지 |
+| **GS1 GPC** (Global Product Classification) | GS1 공식 brick 분류 | `gs1-gpc-to-kfda-food.csv` | (kfda.py 와 공유) | 상품 카테고리 표준화 — 모든 Product 노드의 `gs1_brick` 속성 백본 |
+| **INCI** (International Nomenclature of Cosmetic Ingredients) | EU·KR·US 공통 화장품 성분 표준 명명 | `inci-to-korean.csv` (영문 INCI ↔ 한국어 동의어) | [`data/public/inci.py`](../data/public/inci.py) | 시나리오 E 화장품 안전성 (임산부 위험 성분 인식), Cypher `inci:<slug>` 노드 ID 백본 |
+| **FoodOn** (Food Ontology) | 오픈소스 음식 분류체계 (purl.obofoundry.org/obo/FOODON) | `foodon-to-korean.json` (219건 한국어 별칭) | [`data/public/foodon.py`](../data/public/foodon.py) | 시나리오 A·B 한국어 음식 검색 보조 어휘 (예: "milk" ↔ "우유" ↔ "락토프리") |
+| **Beauty Categories** (자체 정제) | INCI + KFDA 화장품 카테고리 합성 | (코드 내장) | [`data/public/beauty_categories.py`](../data/public/beauty_categories.py) | 화장품 도메인 내부 분류 |
+
+**검증 흐름**: `/validation` 엔드포인트가 4개 매핑(INCI / FoodOn / GS1+KFDA / Loader)의 `expected/covered/missing/severity` 커버리지를 실시간 보고. v0.1 → v1.0 게이트는 "30 wow 쿼리 통과 + ≥80% 검증" (프로젝트 메모리 참조).
+
+### 11.2 공공 데이터
+
+| 자원 | 출처 | 위치 | 용도 |
+|---|---|---|---|
+| **KOSTAT 행정구역 GeoJSON** | 통계청 17 시도 + 34 시군구 경계 | `web/public/korea-provinces.json` (146 KB), `ontology/mappings/korea-regions.csv` | 시나리오 H choropleth 지도 — `react-simple-maps` + `d3-geo`로 렌더링, 5:4 viewBox로 한반도 ~36°N 비율 자연 유지 |
+| **Pretendard 폰트** | orioncactus/pretendard (오픈소스 한글 web font) | `web/public/fonts/pretendard-variable.woff2` | 프론트엔드 전반 한글 타이포그래피 |
+| **NanumGothic 폰트** | Naver / Google Fonts 한글 무료 폰트 | `api/fonts/NanumGothic-Regular.ttf` | AgentCore Code Interpreter의 matplotlib 차트가 시나리오 C에서 한글 라벨 렌더 (NanumGothic 미번들 시 두부 ▮ 출력) |
+
+### 11.3 합성 데이터 (`data/synthetic/`)
+
+PoC 데모이므로 진짜 상품 DB를 쓸 수 없음. 대신 **결정적 seed 기반 합성** — 같은 코드는 같은 데이터를 만들어 wow 시나리오가 재현 가능하도록 함.
+
+| 모듈 | 산출물 | 규모 | 핵심 디자인 |
+|---|---|---|---|
+| [`personas.py`](../data/synthetic/personas.py) | `data/output/personas.ndjson` | **5 wow + 35 supporting = 40 페르소나** | Wow 5인이 시나리오 A~H 전체의 narrative spine: psn_001 임산부 32세 / psn_002 워킹맘 글루텐알레르기 자녀 / psn_003 민감성 24세 / psn_004 헬스챌린저 35세 / psn_005 MD 40세. 각 페르소나는 `concerns` 그래프 노드로 모델링 |
+| [`products.py`](../data/synthetic/products.py) | `data/output/products.ndjson` + 부속 JSON | **~250 SKU** + brands(30~) + manufacturers(15~) + categories | `is_wow` / `wow_moment` 컬럼이 wow 페르소나가 검색했을 때 *반드시 잡혀야 할* SKU를 표시. `scripts/eval_wow_queries.py`가 30 쿼리로 ≥85% 검증 |
+| [`reviews.py`](../data/synthetic/reviews.py) | `data/output/reviews.ndjson` | **2,480 리뷰** | Bedrock이 페르소나 + SKU 조합으로 자연스러운 한국어 리뷰 생성 (`_bedrock.py`로 호출). `helpful_count` 분포로 ranking 신호 |
+| [`logistics.py`](../data/synthetic/logistics.py) | `data/output/{regions,warehouses,carriers}.json` + Route/Shipment/Event/Inventory NDJSON | **17 sido + 34 sigungu, 30 창고, 7 운송사, 76 lane, 500 출하, 12 이벤트, 940 inventory rows** | 시나리오 H 물류 네트워크. 콜드체인 인지 inventory 분포, haversine k-NN을 위한 위경도 |
+| [`channels.json`](../data/output/channels.json) | (정적) | 4 채널 (CU / 이마트 / 올리브영 / 마컬) | 시나리오 G 가격·가용성 매트릭스 |
+| [`concerns.json`](../data/output/concerns.json) | (정적) | 페르소나 관심사 + 카테고리 | HAS_CONCERN 그래프 traversal |
+| [`trends.json`](../data/output/trends.json) | (정적) | 28일 검색·구매 트렌드 | 시나리오 C MD 인사이트 입력 |
+| [`_bedrock.py`](../data/synthetic/_bedrock.py) | (호출 헬퍼) | — | 합성 시 Bedrock Sonnet으로 한국어 텍스트 생성 |
+| [`deterministic.py`](../data/synthetic/deterministic.py) | (시드 헬퍼) | — | 같은 ID는 같은 hash → 같은 결과. 재배포해도 페르소나 1번이 항상 같은 사람 |
+
+**적재 흐름**: `data/load.py --neptune --opensearch --from-s3` — synthetic-data S3 버킷에서 NDJSON을 읽어 Neptune에 그래프 노드/엣지로, OpenSearch에 KNN+BM25 인덱스로 동시 적재. ECS one-shot 태스크로 실행 (private subnet의 Neptune 접근 가능).
+
+### 11.4 Bedrock Knowledge Base 적재 문서 (`raw-docs` S3)
+
+시나리오 B의 `kb_lookup` 도구가 호출하는 RAG 검색 대상.
+
+- **콘텐츠**: 식품·화장품 도메인 PDF/MD (예: 제품 사양서, 안전성 가이드, 캠페인 자료)
+- **자동 청킹·임베딩**: Bedrock KB가 Cohere `embed-v4`로 1024d 벡터화 후 OpenSearch 적재
+- **수동 추가**: 새 PDF를 S3에 업로드 → `aws bedrock-agent start-ingestion-job` (또는 `scripts/sync_kb_datasource.sh`)
+
+### 11.5 데이터 정합성 게이트
+
+세 layer가 일관되어야 wow 시나리오가 작동:
+
+1. **`/validation` 리포트** — 4개 매핑(INCI/FoodOn/GS1+KFDA/Loader)의 missing/severity (실시간)
+2. **`/api/ops/eval` 리포트** — 30 wow 쿼리의 pass-rate (캐시 10분)
+3. **`scripts/eval_wow_queries.py`** — `sys.exit(1)` at <85% (CI gate)
+4. **`tests/api/test_models.py`** — Pydantic schema가 응답 shape 검증
+
+이 4개 게이트가 모두 녹색이어야 데모가 *재현 가능한 신뢰성*을 갖습니다.
+
+---
+
 ## 관련 문서
 
 - 시스템 개요와 데이터 플로우: [docs/architecture.md](architecture.md)
@@ -335,3 +400,5 @@ ECS tasks가 AWS 서비스를 NAT 경유 없이 호출:
 - 보안 트레이드오프 + production 마이그레이션: [SECURITY.md](../SECURITY.md)
 - 시나리오별 API: [docs/api-reference.md](api-reference.md)
 - 신규 기여자 온보딩: [docs/onboarding.md](onboarding.md)
+- 합성 데이터 생성·적재 컨벤션: [data/CLAUDE.md](../data/CLAUDE.md)
+- 표준 매핑 변경 시 체크리스트: [ontology/CLAUDE.md](../ontology/CLAUDE.md)
