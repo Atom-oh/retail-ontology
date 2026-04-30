@@ -20,6 +20,11 @@ COPY api /app/api
 # data/output/* is downloaded from S3 at run time (not baked into image).
 COPY data /app/data
 COPY scripts /app/scripts
+# ontology/mappings/* — INCI/FoodOn/GS1 standards CSVs. /api/ontology/standards
+# and /api/ontology/validation read from /app/ontology/mappings/. Without this
+# COPY, the standards browser is empty and the validation report shows 0%
+# coverage = "error" severity for every standard.
+COPY ontology /app/ontology
 
 EXPOSE 8000
 

@@ -14,11 +14,43 @@ Tools exposed to the model:
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Generator, List
+import time
+from collections import deque
+from threading import Lock
+from typing import Any, Deque, Dict, Generator, List, Optional
 
 from api.aws_clients import bedrock_runtime
 from api.config import get_settings
 from api.services import guardrails, kb, memory, neptune, search
+
+
+# In-process tool-call trace ring buffer for /api/ops/trace.
+# Per-API-instance only — with 2 ECS tasks behind ALB, trace queries land
+# on whichever instance the ALB routed to. Adequate for a demo, not for
+# durable observability.
+_TRACE_BUF: Deque[Dict[str, Any]] = deque(maxlen=200)
+_TRACE_LOCK = Lock()
+
+
+def _push_trace(*, session_id: str, actor_id: str, tool: str, input_: Dict[str, Any]) -> None:
+    with _TRACE_LOCK:
+        _TRACE_BUF.append({
+            "ts": time.time(),
+            "session_id": session_id,
+            "actor_id": actor_id,
+            "tool": tool,
+            "input": input_,
+        })
+
+
+def recent_traces(*, limit: int = 50, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Return up to `limit` most recent tool-call trace entries, newest first.
+    Optional `session_id` filter narrows to a single chat session."""
+    with _TRACE_LOCK:
+        snapshot = list(_TRACE_BUF)
+    if session_id:
+        snapshot = [e for e in snapshot if e.get("session_id") == session_id]
+    return list(reversed(snapshot))[:max(1, min(limit, 200))]
 
 TOOL_SPECS = [
     {
@@ -121,6 +153,10 @@ def converse_stream(
 
         tool_results: List[Dict[str, Any]] = []
         for tu in tool_uses:
+            _push_trace(
+                session_id=session_id, actor_id=actor_id,
+                tool=tu["name"], input_=tu.get("input") or {},
+            )
             yield {"type": "log", "data": {"tool": tu["name"], "input": tu["input"]}}
             try:
                 result = _dispatch_tool(tu["name"], tu["input"], actor_id=actor_id)
