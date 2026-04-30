@@ -1,9 +1,28 @@
 'use client';
 
 import cytoscape from 'cytoscape';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Subgraph } from '@/lib/api-client';
+
+type DensityLevel = 'compact' | 'normal' | 'spread';
+
+const DENSITY_PRESETS: Record<
+  DensityLevel,
+  { nodeRepulsion: number; idealEdgeLength: number; gravity: number }
+> = {
+  compact: { nodeRepulsion: 1024, idealEdgeLength: 20, gravity: 1.5 },
+  normal: { nodeRepulsion: 2048, idealEdgeLength: 50, gravity: 1 },
+  spread: { nodeRepulsion: 8192, idealEdgeLength: 120, gravity: 0.3 },
+};
+
+const DENSITY_LABEL: Record<DensityLevel, string> = {
+  compact: '조밀',
+  normal: '보통',
+  spread: '넓게',
+};
+
+const DENSITY_CYCLE: DensityLevel[] = ['compact', 'normal', 'spread'];
 
 const ONTOLOGY_STYLE: cytoscape.StylesheetStyle[] = [
   {
@@ -76,6 +95,7 @@ export function CytoscapeView({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
+  const [density, setDensity] = useState<DensityLevel>('normal');
 
   const elements = useMemo(() => [
     ...subgraph.nodes.map((n) => ({ ...n, group: 'nodes' as const })),
@@ -84,19 +104,29 @@ export function CytoscapeView({
 
   useEffect(() => {
     if (!containerRef.current) return;
+    const preset = DENSITY_PRESETS[density];
+    const layoutOpts = {
+      name: 'cose',
+      animate: true,
+      fit: true,
+      padding: 24,
+      nodeRepulsion: () => preset.nodeRepulsion,
+      idealEdgeLength: () => preset.idealEdgeLength,
+      gravity: preset.gravity,
+    } as cytoscape.LayoutOptions;
     if (!cyRef.current) {
       cyRef.current = cytoscape({
         container: containerRef.current,
         elements,
         style: ONTOLOGY_STYLE,
-        layout: { name: 'cose', animate: true, fit: true, padding: 24 },
+        layout: layoutOpts,
         minZoom: 0.4, maxZoom: 2.5,
         wheelSensitivity: 0.2,
       });
     } else {
       cyRef.current.elements().remove();
       cyRef.current.add(elements);
-      cyRef.current.layout({ name: 'cose', animate: true, fit: true, padding: 24 }).run();
+      cyRef.current.layout(layoutOpts).run();
     }
     if (wowNodeIds.length && cyRef.current) {
       cyRef.current.batch(() => {
@@ -110,12 +140,17 @@ export function CytoscapeView({
         }
       });
     }
-  }, [elements, wowNodeIds]);
+  }, [elements, wowNodeIds, density]);
 
   useEffect(() => () => {
     cyRef.current?.destroy();
     cyRef.current = null;
   }, []);
+
+  const cycleDensity = () => {
+    const i = DENSITY_CYCLE.indexOf(density);
+    setDensity(DENSITY_CYCLE[(i + 1) % DENSITY_CYCLE.length]);
+  };
 
   if (!subgraph.nodes.length) {
     return (
@@ -128,10 +163,20 @@ export function CytoscapeView({
     );
   }
   return (
-    <div
-      ref={containerRef}
-      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
-      style={{ height, width: '100%' }}
-    />
+    <div className="relative" style={{ height, width: '100%' }}>
+      <div
+        ref={containerRef}
+        className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+        style={{ height, width: '100%' }}
+      />
+      <button
+        type="button"
+        onClick={cycleDensity}
+        className="absolute top-2 right-2 z-10 px-2.5 py-1 text-xs rounded-md border border-slate-300 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm backdrop-blur-sm"
+        title="그래프 밀도 전환 (조밀 / 보통 / 넓게)"
+      >
+        밀도: {DENSITY_LABEL[density]}
+      </button>
+    </div>
   );
 }
