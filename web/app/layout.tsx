@@ -3,7 +3,6 @@ import { Noto_Sans_KR } from 'next/font/google';
 import './globals.css';
 
 import { PersonaProvider } from '@/lib/persona-context';
-import { Sidebar } from '@/components/Sidebar';
 
 // Pretendard isn't on Google Fonts and the GitHub release ZIP exceeds
 // CDN limits — using Noto Sans KR (Google Fonts CDN-friendly) for reliable
@@ -25,12 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko" className={pretendard.variable}>
       <body className="font-sans antialiased min-h-screen">
-        <PersonaProvider>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 min-w-0">{children}</main>
-          </div>
-        </PersonaProvider>
+        <PersonaProvider>{children}</PersonaProvider>
       </body>
     </html>
   );
