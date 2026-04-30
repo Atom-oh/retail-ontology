@@ -61,3 +61,5 @@ Thumbs.db
 # ----- Local-only -----
 /tmp/
 *.tmp
+
+/.local/
