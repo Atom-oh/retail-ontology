@@ -110,3 +110,92 @@ export async function insights(q: string, periodDays = 28): Promise<InsightsResp
   if (!res.ok) throw new Error(`insights failed: ${res.status}`);
   return res.json();
 }
+
+// ─── Scenario I — Churn Risk Diagnosis ─────────────────────────────────────
+
+export type AtRiskMember = {
+  member_id: string;
+  name_ko: string;
+  tier: string;
+  persona_id: string | null;
+  persona_label_ko: string | null;
+  churn_risk: number;
+  recency_days: number;
+  frequency: number;
+  ltv_krw: number;
+  last_purchase_at: string | null;
+};
+
+export type PersonaRiskBucket = {
+  persona_id: string;
+  persona_label_ko: string;
+  total: number;
+  at_risk: number;
+  avg_churn_risk: number;
+};
+
+export type TierRiskBucket = {
+  tier: string;
+  total: number;
+  at_risk: number;
+  avg_churn_risk: number;
+  avg_ltv_krw: number;
+};
+
+export type RecommendedCampaign = {
+  campaign_id: string;
+  name_ko: string;
+  type: string;
+  channel: string;
+  target_persona_ids: string[];
+  expected_response_rate: number;
+};
+
+export type ChurnDashboardResponse = {
+  summary: {
+    total_members: number;
+    high_risk_count: number;
+    high_risk_pct: number;
+    vip_at_risk_count: number;
+    avg_recency_days: number;
+  };
+  top_at_risk: AtRiskMember[];
+  persona_breakdown: PersonaRiskBucket[];
+  tier_breakdown: TierRiskBucket[];
+  recommended_winback: RecommendedCampaign[];
+  subgraph: Subgraph;
+};
+
+export type ChurnMemberDetailResponse = {
+  member: AtRiskMember;
+  transactions: {
+    transaction_id: string;
+    ts: string;
+    amount_krw: number;
+    sku_id: string | null;
+    product_name_ko: string | null;
+  }[];
+  touchpoints: {
+    touchpoint_id: string;
+    type: string;
+    ts: string;
+    responded: boolean;
+    campaign_id: string | null;
+    campaign_name_ko: string | null;
+  }[];
+  response_rate: number;
+  recommended_campaign: RecommendedCampaign | null;
+  subgraph: Subgraph;
+};
+
+export async function churnDashboard(topK = 30): Promise<ChurnDashboardResponse> {
+  const res = await fetch(`${BASE}/api/churn/dashboard?top_k=${topK}`);
+  if (!res.ok) throw new Error(`churn dashboard failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+export async function churnMember(memberId: string): Promise<ChurnMemberDetailResponse> {
+  const res = await fetch(`${BASE}/api/churn/member/${encodeURIComponent(memberId)}`);
+  if (!res.ok) throw new Error(`churn member failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
