@@ -10,9 +10,11 @@ aggregation; the full Code Interpreter integration is wired in Phase 4.
 """
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List
 
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from api.services import neptune
@@ -57,3 +59,40 @@ def insights_endpoint(req: InsightsRequest) -> InsightsResponse:
         chart_spec=chart_spec,
         drill_down_subgraph={"nodes": [], "edges": []},
     )
+
+
+def _sse(event: str, data: Dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@router.post("/insights/stream")
+def insights_stream(req: InsightsRequest) -> StreamingResponse:
+    """SSE variant — surfaces phase progress (graph aggregation → chart
+    synthesis) and emits a final `result` event matching InsightsResponse."""
+    def stream():
+        yield _sse("phase", {"name": "neptune", "detail": "Trend ↔ Ingredient 집계"})
+        cypher = """
+            MATCH (t:Trend)-[:INVOLVES]->(i:Ingredient)
+            WHERE t.type IN ['kbeauty', 'diet']
+            RETURN t.name_ko AS trend, collect(i.name_ko)[0..5] AS ingredients
+            LIMIT 10
+        """
+        try:
+            rows: List[Dict[str, Any]] = neptune.open_cypher(cypher)
+        except Exception as exc:  # noqa: BLE001
+            yield _sse("phase", {"name": "error", "detail": str(exc)[:200]})
+            rows = []
+        yield _sse("delta", {"text": f"'{req.q}'에 대한 트렌드 분석을 정리하고 있습니다…"})
+        chart_spec = {
+            "type": "bar",
+            "title": f"{req.q} — 지난 {req.period_days}일 트렌드",
+            "data": [{"label": r.get("trend", ""), "value": len(r.get("ingredients", []))}
+                     for r in rows],
+        }
+        yield _sse("result", {
+            "answer_ko": f"'{req.q}'에 대한 트렌드 분석 (placeholder; Phase 4에서 Code Interpreter 활성화).",
+            "chart_spec": chart_spec,
+            "drill_down_subgraph": {"nodes": [], "edges": []},
+        })
+
+    return StreamingResponse(stream(), media_type="text/event-stream")

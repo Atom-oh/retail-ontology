@@ -11,11 +11,13 @@ the wrong identity provider if the User Pool were ever recreated.
 """
 from __future__ import annotations
 
+import base64
+import json as _json
 import os
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import requests
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 router = APIRouter(tags=["auth"])
@@ -58,6 +60,46 @@ PUBLIC_DOMAIN = _required_env("PUBLIC_DOMAIN")
 _PRIMARY_DOMAIN = next((h.strip() for h in PUBLIC_DOMAIN.split(",") if h.strip()), "")
 if not _PRIMARY_DOMAIN:
     raise RuntimeError("PUBLIC_DOMAIN env is empty after parsing")
+
+
+@router.get("/auth/login")
+def auth_login() -> RedirectResponse:
+    """Redirect to Cognito Hosted UI /oauth2/authorize. Used by the sidebar
+    re-login link and by Lambda@Edge as the unauthenticated landing page."""
+    redirect_uri = f"https://{_PRIMARY_DOMAIN}/api/auth/callback"
+    authorize_url = (
+        f"https://{COGNITO_DOMAIN}/oauth2/authorize"
+        f"?client_id={CLIENT_ID}"
+        f"&response_type=code"
+        f"&scope=openid+email+profile"
+        f"&redirect_uri={redirect_uri}"
+    )
+    return RedirectResponse(url=authorize_url, status_code=302)
+
+
+@router.get("/auth/whoami")
+def auth_whoami(request: Request) -> Dict[str, Any]:
+    """Return identity claims from the id_token cookie. The middleware
+    (`AuthMiddleware`) already validated the JWT, so we can decode-only
+    here without re-verifying signatures."""
+    id_token = request.cookies.get("id_token")
+    if not id_token:
+        raise HTTPException(status_code=401, detail="not authenticated")
+    parts = id_token.split(".")
+    if len(parts) != 3:
+        raise HTTPException(status_code=400, detail="malformed id_token")
+    # JWT base64url decoding requires padding adjustment.
+    payload_b64 = parts[1] + "=" * (-len(parts[1]) % 4)
+    try:
+        claims = _json.loads(base64.urlsafe_b64decode(payload_b64).decode("utf-8"))
+    except (ValueError, _json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail="invalid id_token payload")
+    return {
+        "sub":      claims.get("sub"),
+        "email":    claims.get("email"),
+        "username": claims.get("cognito:username") or claims.get("preferred_username"),
+        "groups":   claims.get("cognito:groups") or [],
+    }
 
 
 @router.get("/auth/callback")
