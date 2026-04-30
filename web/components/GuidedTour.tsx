@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import {
   Play, X, ChevronLeft, ChevronRight, Search, MessageSquare, BarChart3,
   UserCheck, ShieldAlert, ArrowLeftRight, Store, BookOpen, Map,
+  TrendingDown, Wallet, ArrowUpRight,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'ontology-retail.tour-seen';
@@ -97,6 +98,33 @@ const STEPS: Step[] = [
     pitch: '자연어 → 추천 SKU → CU·이마트·올리브영·마컬 4채널의 가격/할인/재고 매트릭스 + 페르소나 선호 채널 가중치 점수.',
     try_it: '페르소나를 "임산부"로 두고 "비건 토너 추천" 검색 — 마트/올영이 페르소나 보너스 받아 BEST로 표시됩니다.',
     tech: 'Neptune AVAILABLE_IN edges · deterministic price synthesis · persona-channel bias',
+  },
+  {
+    badge: 'I',
+    ko: '이탈 위험 진단',
+    href: '/churn',
+    icon: TrendingDown,
+    pitch: '1,000명 합성 회원에 RFM(Recency·Frequency·Monetary) 기반 churn_risk가 적재되어 있습니다. 등급별·페르소나별 위험 분포 + 상위 30명 클릭 드릴다운 + Cytoscape 1-hop 그래프 + 페르소나 맞춤 winback 캠페인 추천을 한 화면에 묶어 보여줍니다.',
+    try_it: '상위 위험 회원 리스트에서 VIP 한 명을 클릭 — 우측에 1-hop 그래프와 추천 winback이 동시에 갱신됩니다.',
+    tech: 'Neptune openCypher 5-round-trip aggregation · Member ↔ Tier ↔ Persona ↔ Touchpoint ↔ Campaign',
+  },
+  {
+    badge: 'J',
+    ko: '확보 채널 ROI',
+    href: '/acquisition',
+    icon: Wallet,
+    pitch: 'acquisition 캠페인별 비용 대비 확보 회원 LTV로 ROI를 산출하고, 페르소나×채널 응답률 매트릭스 히트맵으로 "임산부 페르소나는 카카오톡 푸시가 이메일 대비 N배" 같은 채널 효율 차이를 직관화합니다.',
+    try_it: '히트맵 셀에 마우스를 올리면 "응답/발송"의 절대치가 함께 보입니다. 채널별 ROI 카드와 캠페인별 ROI 카드를 비교해 어디에 다음 예산을 태울지 판단하세요.',
+    tech: 'Neptune cohort rollup · single-touch attribution · Persona × Channel matrix',
+  },
+  {
+    badge: 'K',
+    ko: '등급 상승 경로',
+    href: '/tier-up',
+    icon: ArrowUpRight,
+    pitch: 'Gold 회원이 Silver 회원 대비 더 많이 사는 카테고리·상품을 lift(per-capita 비교)로 산출해 "등급 상승 시그널"을 식별하고, LTV 1.5M~2M 사이 Silver 회원을 "업그레이드 후보"로 함께 추출합니다.',
+    try_it: '상품 lift 차트에서 가장 높은 lift를 보이는 SKU 1-2개를 메모 — 그 카테고리를 어떤 후보에게 추천할지 매핑해 보세요.',
+    tech: 'Cohort lift (Gold rate ÷ Silver rate) with Laplace smoothing · LTV gap-to-Gold candidate ranking',
   },
   {
     badge: '메타',
