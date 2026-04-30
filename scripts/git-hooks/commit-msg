@@ -1,0 +1,43 @@
+#!/bin/bash
+# scripts/git-hooks/commit-msg
+#
+# Strip AI co-authorship trailers from commit messages before they land.
+# Triggers on every `git commit` (including --amend, squash, cherry-pick).
+#
+# Removes:
+#   - Co-Authored-By: Claude <...>
+#   - Co-Authored-By: <...claude...>
+#   - "🤖 Generated with [Claude Code](...)" or similar provenance footers
+#   - Trailing blank lines created by the removals
+#
+# Why:
+#   These trailers leak AI authorship into the public git log and into
+#   GitHub's "Contributors" graph, which is not what the human author
+#   wants attributed to themselves or visible to repo viewers.
+
+set -euo pipefail
+
+MSG_FILE="$1"
+
+# Use a tmpfile so partial writes don't corrupt the original.
+TMP="$(mktemp)"
+trap 'rm -f "$TMP"' EXIT
+
+# Filter the message:
+#   1. Drop Co-Authored-By lines that mention Claude (case-insensitive).
+#   2. Drop the "Generated with [Claude Code]" provenance footer line.
+#   3. Drop the bot emoji header line that often precedes provenance.
+grep -viE '^[[:space:]]*Co-Authored-By:[[:space:]]+.*claude' "$MSG_FILE" \
+  | grep -viE '^[[:space:]]*🤖?[[:space:]]*Generated with \[Claude Code\]' \
+  | grep -viE '^[[:space:]]*Generated with Claude' \
+  > "$TMP"
+
+# Collapse runs of trailing blank lines that may result from the filter.
+# (Use awk to keep at most one blank between paragraphs and trim trailing.)
+awk '
+  /^[[:space:]]*$/ { blank++; next }
+  {
+    while (blank > 0) { print ""; blank-- }
+    print
+  }
+' "$TMP" > "$MSG_FILE"

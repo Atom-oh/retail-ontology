@@ -1,0 +1,878 @@
+{
+  "foodon:00001006": {
+    "name_ko": "브로콜리",
+    "name_en": "Broccoli"
+  },
+  "foodon:00001013": {
+    "name_ko": "바나나",
+    "name_en": "Banana"
+  },
+  "foodon:00001032": {
+    "name_ko": "탄산음료",
+    "name_en": "Carbonated Beverage"
+  },
+  "foodon:00001049": {
+    "name_ko": "도시락",
+    "name_en": "Lunch Box"
+  },
+  "foodon:00001052": {
+    "name_ko": "건면",
+    "name_en": "Dried Noodle"
+  },
+  "foodon:00001091": {
+    "name_ko": "초콜릿",
+    "name_en": "Chocolate"
+  },
+  "foodon:00001099": {
+    "name_ko": "사탕·젤리",
+    "name_en": "Candy and Jelly"
+  },
+  "foodon:00001100": {
+    "name_ko": "도넛",
+    "name_en": "Doughnut"
+  },
+  "foodon:00001101": {
+    "name_ko": "가공유",
+    "name_en": "Processed Milk"
+  },
+  "foodon:00001172": {
+    "name_ko": "음료",
+    "name_en": "Beverage"
+  },
+  "foodon:00001174": {
+    "name_ko": "시리얼",
+    "name_en": "Cereal"
+  },
+  "foodon:00001242": {
+    "name_ko": "글루텐프리",
+    "name_en": "Gluten-Free"
+  },
+  "foodon:00001259": {
+    "name_ko": "크림치즈",
+    "name_en": "Cream Cheese"
+  },
+  "foodon:00001264": {
+    "name_ko": "아이스크림",
+    "name_en": "Ice Cream"
+  },
+  "foodon:00001274": {
+    "name_ko": "우유",
+    "name_en": "Milk"
+  },
+  "foodon:00001294": {
+    "name_ko": "쌀과자",
+    "name_en": "Rice Snack"
+  },
+  "foodon:00001349": {
+    "name_ko": "만두",
+    "name_en": "Dumpling"
+  },
+  "foodon:00001402": {
+    "name_ko": "간장",
+    "name_en": "Soy Sauce"
+  },
+  "foodon:00001510": {
+    "name_ko": "밀크캔디",
+    "name_en": "Milk Candy"
+  },
+  "foodon:00001569": {
+    "name_ko": "다크초콜릿",
+    "name_en": "Dark Chocolate"
+  },
+  "foodon:00001628": {
+    "name_ko": "라면",
+    "name_en": "Instant Noodle"
+  },
+  "foodon:00001639": {
+    "name_ko": "요거트 드링크",
+    "name_en": "Yogurt Drink"
+  },
+  "foodon:00001643": {
+    "name_ko": "단백질바",
+    "name_en": "Protein Bar"
+  },
+  "foodon:00001645": {
+    "name_ko": "바게트 스낵",
+    "name_en": "Baguette Snack"
+  },
+  "foodon:00001658": {
+    "name_ko": "스낵과자",
+    "name_en": "Snack"
+  },
+  "foodon:00001685": {
+    "name_ko": "올리브유",
+    "name_en": "Olive Oil"
+  },
+  "foodon:00001709": {
+    "name_ko": "요거트",
+    "name_en": "Yogurt"
+  },
+  "foodon:00001710": {
+    "name_ko": "랩 샌드위치",
+    "name_en": "Wrap Sandwich"
+  },
+  "foodon:00001797": {
+    "name_ko": "샌드위치",
+    "name_en": "Sandwich"
+  },
+  "foodon:00001800": {
+    "name_ko": "홍삼음료",
+    "name_en": "Red Ginseng Drink"
+  },
+  "foodon:00001830": {
+    "name_ko": "체다치즈",
+    "name_en": "Cheddar Cheese"
+  },
+  "foodon:00001849": {
+    "name_ko": "멜론",
+    "name_en": "Melon"
+  },
+  "foodon:00001872": {
+    "name_ko": "간장",
+    "name_en": "Soy Sauce"
+  },
+  "foodon:00001878": {
+    "name_ko": "단호박",
+    "name_en": "Sweet Pumpkin"
+  },
+  "foodon:00001917": {
+    "name_ko": "불고기",
+    "name_en": "Bulgogi"
+  },
+  "foodon:00002049": {
+    "name_ko": "샌드위치",
+    "name_en": "Sandwich"
+  },
+  "foodon:00002089": {
+    "name_ko": "닭가슴살",
+    "name_en": "Chicken Breast"
+  },
+  "foodon:00002120": {
+    "name_ko": "요거트",
+    "name_en": "Yogurt"
+  },
+  "foodon:00002133": {
+    "name_ko": "식물성 음료",
+    "name_en": "Plant-based Milk"
+  },
+  "foodon:00002177": {
+    "name_ko": "사탕",
+    "name_en": "Candy"
+  },
+  "foodon:00002178": {
+    "name_ko": "이유식",
+    "name_en": "Baby Food"
+  },
+  "foodon:00002182": {
+    "name_ko": "커피우유",
+    "name_en": "Coffee Milk"
+  },
+  "foodon:00002183": {
+    "name_ko": "랩 샌드위치",
+    "name_en": "Wrap Sandwich"
+  },
+  "foodon:00002201": {
+    "name_ko": "빵",
+    "name_en": "Bread"
+  },
+  "foodon:00002244": {
+    "name_ko": "두유",
+    "name_en": "Soy Milk"
+  },
+  "foodon:00002294": {
+    "name_ko": "단백질바",
+    "name_en": "Protein Bar"
+  },
+  "foodon:00002372": {
+    "name_ko": "핫도그",
+    "name_en": "Hot Dog"
+  },
+  "foodon:00002380": {
+    "name_ko": "초콜릿",
+    "name_en": "Chocolate"
+  },
+  "foodon:00002385": {
+    "name_ko": "삼각김밥",
+    "name_en": "Onigiri"
+  },
+  "foodon:00002398": {
+    "name_ko": "허니버터",
+    "name_en": "Honey Butter"
+  },
+  "foodon:00002403": {
+    "name_ko": "고추장",
+    "name_en": "Gochujang"
+  },
+  "foodon:00002411": {
+    "name_ko": "유산균 젤리",
+    "name_en": "Probiotic Jelly"
+  },
+  "foodon:00002426": {
+    "name_ko": "라면",
+    "name_en": "Ramen"
+  },
+  "foodon:00002428": {
+    "name_ko": "젤리",
+    "name_en": "Jelly"
+  },
+  "foodon:00002440": {
+    "name_ko": "흰우유",
+    "name_en": "White Milk"
+  },
+  "foodon:00002467": {
+    "name_ko": "식혜",
+    "name_en": "Sikhye"
+  },
+  "foodon:00002473": {
+    "name_ko": "봉지라면",
+    "name_en": "Instant Noodle"
+  },
+  "foodon:00002489": {
+    "name_ko": "바게트 스낵",
+    "name_en": "Baguette Snack"
+  },
+  "foodon:00002500": {
+    "name_ko": "쌀과자",
+    "name_en": "Rice Snack"
+  },
+  "foodon:00002501": {
+    "name_ko": "탄산음료",
+    "name_en": "Carbonated Beverage"
+  },
+  "foodon:00002507": {
+    "name_ko": "커피음료",
+    "name_en": "Coffee Beverage"
+  },
+  "foodon:00002512": {
+    "name_ko": "샌드위치",
+    "name_en": "Sandwich"
+  },
+  "foodon:00002515": {
+    "name_ko": "유산균",
+    "name_en": "Probiotic"
+  },
+  "foodon:00002521": {
+    "name_ko": "건면",
+    "name_en": "Dried Noodle"
+  },
+  "foodon:00002526": {
+    "name_ko": "에너지음료",
+    "name_en": "Energy Drink"
+  },
+  "foodon:00002537": {
+    "name_ko": "아이스크림",
+    "name_en": "Ice Cream"
+  },
+  "foodon:00002541": {
+    "name_ko": "치즈",
+    "name_en": "Cheese"
+  },
+  "foodon:00002542": {
+    "name_ko": "핫도그",
+    "name_en": "Hot Dog"
+  },
+  "foodon:00002567": {
+    "name_ko": "녹차음료",
+    "name_en": "Green Tea Beverage"
+  },
+  "foodon:00002571": {
+    "name_ko": "김",
+    "name_en": "Dried Seaweed"
+  },
+  "foodon:00002572": {
+    "name_ko": "오트밀",
+    "name_en": "Oatmeal"
+  },
+  "foodon:00002582": {
+    "name_ko": "라면",
+    "name_en": "Instant Noodle"
+  },
+  "foodon:00002596": {
+    "name_ko": "삼각김밥",
+    "name_en": "Rice Triangle"
+  },
+  "foodon:00002600": {
+    "name_ko": "초콜릿",
+    "name_en": "Chocolate"
+  },
+  "foodon:00002628": {
+    "name_ko": "스무디주스",
+    "name_en": "Smoothie Juice"
+  },
+  "foodon:00002635": {
+    "name_ko": "영양빵",
+    "name_en": "Nutritional Bread"
+  },
+  "foodon:00002648": {
+    "name_ko": "이온음료",
+    "name_en": "Sports Drink"
+  },
+  "foodon:00002649": {
+    "name_ko": "낙지볶음",
+    "name_en": "Stir-fried Octopus"
+  },
+  "foodon:00002658": {
+    "name_ko": "컵라면",
+    "name_en": "Cup Noodle"
+  },
+  "foodon:00002659": {
+    "name_ko": "컵라면",
+    "name_en": "Cup Noodle"
+  },
+  "foodon:00002660": {
+    "name_ko": "사골곰탕",
+    "name_en": "Bone Broth Soup"
+  },
+  "foodon:00002661": {
+    "name_ko": "국화차",
+    "name_en": "Chrysanthemum Tea"
+  },
+  "foodon:00002662": {
+    "name_ko": "현미밥",
+    "name_en": "Brown Rice"
+  },
+  "foodon:00002670": {
+    "name_ko": "새우과자",
+    "name_en": "Shrimp Snack"
+  },
+  "foodon:00002672": {
+    "name_ko": "순한맛라면",
+    "name_en": "Mild Instant Noodle"
+  },
+  "foodon:00002673": {
+    "name_ko": "삼각김밥",
+    "name_en": "Rice Triangle"
+  },
+  "foodon:00002678": {
+    "name_ko": "다크초콜릿",
+    "name_en": "Dark Chocolate"
+  },
+  "foodon:00002684": {
+    "name_ko": "건면라면",
+    "name_en": "Dried Ramen"
+  },
+  "foodon:00002685": {
+    "name_ko": "비타민젤리",
+    "name_en": "Vitamin Jelly"
+  },
+  "foodon:00002693": {
+    "name_ko": "시리얼",
+    "name_en": "Cereal"
+  },
+  "foodon:00002694": {
+    "name_ko": "도시락",
+    "name_en": "Lunch Box"
+  },
+  "foodon:00002698": {
+    "name_ko": "도넛",
+    "name_en": "Donut"
+  },
+  "foodon:00002701": {
+    "name_ko": "컵라면",
+    "name_en": "Cup Noodle"
+  },
+  "foodon:00002703": {
+    "name_ko": "닭가슴살",
+    "name_en": "Chicken Breast"
+  },
+  "foodon:00002714": {
+    "name_ko": "글레이즈",
+    "name_en": "Glaze"
+  },
+  "foodon:00002715": {
+    "name_ko": "초콜릿 글레이즈",
+    "name_en": "Chocolate Glaze"
+  },
+  "foodon:00002726": {
+    "name_ko": "밀크쿠키",
+    "name_en": "Milk Cookie"
+  },
+  "foodon:00002728": {
+    "name_ko": "버터쿠키",
+    "name_en": "Butter Cookie"
+  },
+  "foodon:00002729": {
+    "name_ko": "통밀 크래커",
+    "name_en": "Whole Wheat Cracker"
+  },
+  "foodon:00002733": {
+    "name_ko": "보리차",
+    "name_en": "Barley Tea"
+  },
+  "foodon:00002737": {
+    "name_ko": "버터",
+    "name_en": "Butter"
+  },
+  "foodon:00002738": {
+    "name_ko": "국화차",
+    "name_en": "Chrysanthemum Tea"
+  },
+  "foodon:00002739": {
+    "name_ko": "유자녹차",
+    "name_en": "Yuzu Green Tea"
+  },
+  "foodon:00002741": {
+    "name_ko": "아몬드밀크",
+    "name_en": "Almond Milk"
+  },
+  "foodon:00002750": {
+    "name_ko": "오트밀크",
+    "name_en": "Oat Milk"
+  },
+  "foodon:00002756": {
+    "name_ko": "도넛",
+    "name_en": "Donut"
+  },
+  "foodon:00002764": {
+    "name_ko": "스팀빵",
+    "name_en": "Steamed Bun"
+  },
+  "foodon:00002768": {
+    "name_ko": "가공유",
+    "name_en": "Flavored Milk"
+  },
+  "foodon:00002775": {
+    "name_ko": "사골곰탕",
+    "name_en": "Bone Broth Soup"
+  },
+  "foodon:00002802": {
+    "name_ko": "쿠키",
+    "name_en": "Cookie"
+  },
+  "foodon:00002803": {
+    "name_ko": "크래커",
+    "name_en": "Cracker"
+  },
+  "foodon:00002809": {
+    "name_ko": "감귤 주스",
+    "name_en": "Citrus Juice"
+  },
+  "foodon:00002888": {
+    "name_ko": "스낵과자",
+    "name_en": "Snack"
+  },
+  "foodon:00002891": {
+    "name_ko": "에너지 음료",
+    "name_en": "Energy Drink"
+  },
+  "foodon:00002894": {
+    "name_ko": "오트밀 시리얼",
+    "name_en": "Oatmeal Cereal"
+  },
+  "foodon:00002898": {
+    "name_ko": "요거트 드링크",
+    "name_en": "Yogurt Drink"
+  },
+  "foodon:00002904": {
+    "name_ko": "제육볶음",
+    "name_en": "Spicy Pork Stir-fry"
+  },
+  "foodon:00002910": {
+    "name_ko": "아이스크림",
+    "name_en": "Ice Cream"
+  },
+  "foodon:00002912": {
+    "name_ko": "삼각김밥",
+    "name_en": "Triangle Kimbap"
+  },
+  "foodon:00002920": {
+    "name_ko": "쌀국수",
+    "name_en": "Rice Noodle Soup"
+  },
+  "foodon:00002936": {
+    "name_ko": "시리얼",
+    "name_en": "Cereal"
+  },
+  "foodon:00002946": {
+    "name_ko": "김밥",
+    "name_en": "Gimbap"
+  },
+  "foodon:00003009": {
+    "name_ko": "흰우유",
+    "name_en": "White Milk"
+  },
+  "foodon:00003010": {
+    "name_ko": "크리스피칩",
+    "name_en": "Crispy Chip"
+  },
+  "foodon:00003041": {
+    "name_ko": "차음료",
+    "name_en": "Tea Beverage"
+  },
+  "foodon:00003042": {
+    "name_ko": "치즈",
+    "name_en": "Cheese"
+  },
+  "foodon:00003045": {
+    "name_ko": "만두",
+    "name_en": "Dumpling"
+  },
+  "foodon:00003048": {
+    "name_ko": "밀크쿠키",
+    "name_en": "Milk Cookie"
+  },
+  "foodon:00003049": {
+    "name_ko": "크래커",
+    "name_en": "Cracker"
+  },
+  "foodon:00003054": {
+    "name_ko": "쌀국수",
+    "name_en": "Rice Noodle"
+  },
+  "foodon:00003055": {
+    "name_ko": "멀티비타민",
+    "name_en": "Multivitamin"
+  },
+  "foodon:00003060": {
+    "name_ko": "밀크캔디",
+    "name_en": "Milk Candy"
+  },
+  "foodon:00003061": {
+    "name_ko": "버터",
+    "name_en": "Butter"
+  },
+  "foodon:00003062": {
+    "name_ko": "비타민젤리",
+    "name_en": "Vitamin Jelly"
+  },
+  "foodon:00003063": {
+    "name_ko": "포도씨유",
+    "name_en": "Grape Seed Oil"
+  },
+  "foodon:00003064": {
+    "name_ko": "도넛",
+    "name_en": "Donut"
+  },
+  "foodon:00003074": {
+    "name_ko": "탄산음료",
+    "name_en": "Carbonated Beverage"
+  },
+  "foodon:00003080": {
+    "name_ko": "단백질",
+    "name_en": "Protein"
+  },
+  "foodon:00003081": {
+    "name_ko": "비타민B",
+    "name_en": "Vitamin B"
+  },
+  "foodon:00003082": {
+    "name_ko": "캡슐보충제",
+    "name_en": "Capsule Supplement"
+  },
+  "foodon:00003083": {
+    "name_ko": "고단백보충제",
+    "name_en": "High Protein Supplement"
+  },
+  "foodon:00003085": {
+    "name_ko": "요거트",
+    "name_en": "Yogurt"
+  },
+  "foodon:00003088": {
+    "name_ko": "이온음료",
+    "name_en": "Sports Drink"
+  },
+  "foodon:00003101": {
+    "name_ko": "홍삼음료",
+    "name_en": "Red Ginseng Drink"
+  },
+  "foodon:00003154": {
+    "name_ko": "유자녹차",
+    "name_en": "Yuzu Green Tea"
+  },
+  "foodon:00003159": {
+    "name_ko": "아이스크림",
+    "name_en": "Ice Cream"
+  },
+  "foodon:00003174": {
+    "name_ko": "삼각김밥",
+    "name_en": "Triangle Gimbap"
+  },
+  "foodon:00003183": {
+    "name_ko": "스포츠음료",
+    "name_en": "Sports Beverage"
+  },
+  "foodon:00003190": {
+    "name_ko": "크림치즈",
+    "name_en": "Cream Cheese"
+  },
+  "foodon:00003197": {
+    "name_ko": "단백질바",
+    "name_en": "Protein Bar"
+  },
+  "foodon:00003212": {
+    "name_ko": "떡",
+    "name_en": "Rice Cake"
+  },
+  "foodon:00003240": {
+    "name_ko": "사과",
+    "name_en": "Apple"
+  },
+  "foodon:00003274": {
+    "name_ko": "샌드위치",
+    "name_en": "Sandwich"
+  },
+  "foodon:00003276": {
+    "name_ko": "초콜릿",
+    "name_en": "Chocolate"
+  },
+  "foodon:00003298": {
+    "name_ko": "탄산음료",
+    "name_en": "Carbonated Beverage"
+  },
+  "foodon:00003311": {
+    "name_ko": "아몬드밀크",
+    "name_en": "Almond Milk"
+  },
+  "foodon:00003380": {
+    "name_ko": "롤케이크",
+    "name_en": "Roll Cake"
+  },
+  "foodon:00003387": {
+    "name_ko": "단호박",
+    "name_en": "Kabocha Squash"
+  },
+  "foodon:00003388": {
+    "name_ko": "혼합채소주스",
+    "name_en": "Mixed Vegetable Juice"
+  },
+  "foodon:00003416": {
+    "name_ko": "사과주스",
+    "name_en": "Apple Juice"
+  },
+  "foodon:00003418": {
+    "name_ko": "바나나 스무디",
+    "name_en": "Banana Smoothie"
+  },
+  "foodon:00003444": {
+    "name_ko": "요거트",
+    "name_en": "Yogurt"
+  },
+  "foodon:00003455": {
+    "name_ko": "삼각김밥",
+    "name_en": "Triangle Gimbap"
+  },
+  "foodon:00003469": {
+    "name_ko": "김 스낵",
+    "name_en": "Seaweed Snack"
+  },
+  "foodon:00003470": {
+    "name_ko": "고추장",
+    "name_en": "Gochujang"
+  },
+  "foodon:00003471": {
+    "name_ko": "채소주스",
+    "name_en": "Vegetable Juice"
+  },
+  "foodon:00003490": {
+    "name_ko": "쌀국수",
+    "name_en": "Rice Noodle"
+  },
+  "foodon:00003498": {
+    "name_ko": "버터",
+    "name_en": "Butter"
+  },
+  "foodon:00003501": {
+    "name_ko": "이온음료",
+    "name_en": "Sports Drink"
+  },
+  "foodon:00003519": {
+    "name_ko": "딸기",
+    "name_en": "Strawberry"
+  },
+  "foodon:00003520": {
+    "name_ko": "김밥",
+    "name_en": "Gimbap"
+  },
+  "foodon:00003523": {
+    "name_ko": "감귤주스",
+    "name_en": "Citrus Juice"
+  },
+  "foodon:00003524": {
+    "name_ko": "혼합견과",
+    "name_en": "Mixed Nuts"
+  },
+  "foodon:00003525": {
+    "name_ko": "호두",
+    "name_en": "Walnut"
+  },
+  "foodon:00003526": {
+    "name_ko": "견과류",
+    "name_en": "Nuts"
+  },
+  "foodon:00003527": {
+    "name_ko": "피칸",
+    "name_en": "Pecan"
+  },
+  "foodon:00003533": {
+    "name_ko": "쌀과자",
+    "name_en": "Rice Cracker"
+  },
+  "foodon:00003548": {
+    "name_ko": "참기름",
+    "name_en": "Sesame Oil"
+  },
+  "foodon:00003549": {
+    "name_ko": "들기름",
+    "name_en": "Perilla Oil"
+  },
+  "foodon:00003552": {
+    "name_ko": "다크초콜릿",
+    "name_en": "Dark Chocolate"
+  },
+  "foodon:00003578": {
+    "name_ko": "현미",
+    "name_en": "Brown Rice"
+  },
+  "foodon:00003596": {
+    "name_ko": "밀가루 스낵",
+    "name_en": "Wheat Snack"
+  },
+  "foodon:00003598": {
+    "name_ko": "사탕",
+    "name_en": "Candy"
+  },
+  "foodon:00003600": {
+    "name_ko": "다크초콜릿",
+    "name_en": "Dark Chocolate"
+  },
+  "foodon:00003601": {
+    "name_ko": "핫도그",
+    "name_en": "Hot Dog"
+  },
+  "foodon:00003630": {
+    "name_ko": "오트밀",
+    "name_en": "Oatmeal"
+  },
+  "foodon:00003661": {
+    "name_ko": "낙지",
+    "name_en": "Octopus"
+  },
+  "foodon:00003671": {
+    "name_ko": "바게트 스낵",
+    "name_en": "Baguette Snack"
+  },
+  "foodon:00003672": {
+    "name_ko": "아몬드밀크",
+    "name_en": "Almond Milk"
+  },
+  "foodon:00003679": {
+    "name_ko": "콜드브루",
+    "name_en": "Cold Brew Coffee"
+  },
+  "foodon:00003697": {
+    "name_ko": "콘플레이크",
+    "name_en": "Cornflakes"
+  },
+  "foodon:00003788": {
+    "name_ko": "에너지드링크",
+    "name_en": "Energy Drink"
+  },
+  "foodon:00003798": {
+    "name_ko": "귀리음료",
+    "name_en": "Oat Milk"
+  },
+  "foodon:00003872": {
+    "name_ko": "유산균 젤리",
+    "name_en": "Probiotic Jelly"
+  },
+  "foodon:00003902": {
+    "name_ko": "탄산 에너지드링크",
+    "name_en": "Carbonated Energy Drink"
+  },
+  "foodon:00004103": {
+    "name_ko": "무설탕 에너지드링크",
+    "name_en": "Sugar-Free Energy Drink"
+  },
+  "foodon:00004182": {
+    "name_ko": "구운 아몬드",
+    "name_en": "Roasted Almond"
+  },
+  "foodon:00004183": {
+    "name_ko": "스포츠음료",
+    "name_en": "Sports Drink"
+  },
+  "foodon:00004231": {
+    "name_ko": "카페인 음료",
+    "name_en": "Caffeinated Drink"
+  },
+  "foodon:00004274": {
+    "name_ko": "유산균",
+    "name_en": "Probiotic"
+  },
+  "foodon:00004523": {
+    "name_ko": "단백질 오트밀",
+    "name_en": "Protein Oatmeal"
+  },
+  "foodon:00004568": {
+    "name_ko": "에너지드링크",
+    "name_en": "Energy Drink"
+  },
+  "foodon:00004596": {
+    "name_ko": "바나나 스무디",
+    "name_en": "Banana Smoothie"
+  },
+  "foodon:00004659": {
+    "name_ko": "프리바이오틱스",
+    "name_en": "Prebiotics"
+  },
+  "foodon:03302596": {
+    "name_ko": "만두피",
+    "name_en": "Dumpling Wrapper"
+  },
+  "foodon:03306636": {
+    "name_ko": "김치",
+    "name_en": "Kimchi"
+  },
+  "foodon:03306867": {
+    "name_ko": "돼지고기",
+    "name_en": "Pork"
+  },
+  "foodon:03310284": {
+    "name_ko": "왕교자",
+    "name_en": "Large Dumpling"
+  },
+  "foodon:03310763": {
+    "name_ko": "김치만두",
+    "name_en": "Kimchi Dumpling"
+  },
+  "foodon:03310922": {
+    "name_ko": "얇은피 만두",
+    "name_en": "Thin-Skin Dumpling"
+  },
+  "foodon:03311116": {
+    "name_ko": "밀가루 반죽(피)",
+    "name_en": "Dumpling wrapper"
+  },
+  "foodon:03411174": {
+    "name_ko": "만두",
+    "name_en": "Dumpling"
+  },
+  "foodon:calcium": {
+    "name_ko": "칼슘",
+    "name_en": "Calcium"
+  },
+  "foodon:carbon_dioxide": {
+    "name_ko": "이산화탄소",
+    "name_en": "Carbon dioxide"
+  },
+  "foodon:lemon_flavor_natural": {
+    "name_ko": "레몬향",
+    "name_en": "Natural lemon flavor"
+  },
+  "foodon:magnesium": {
+    "name_ko": "마그네슘",
+    "name_en": "Magnesium"
+  },
+  "foodon:water_mineral": {
+    "name_ko": "미네랄워터",
+    "name_en": "Mineral water"
+  },
+  "foodon:water_sparkling": {
+    "name_ko": "탄산수",
+    "name_en": "Sparkling water"
+  },
+  "foodon:water_volcanic_rock": {
+    "name_ko": "화산암반수",
+    "name_en": "Volcanic rock water"
+  }
+}
