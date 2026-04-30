@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 
 import * as api from '@/lib/api-client';
+import { MarkdownView } from '@/components/MarkdownView';
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -151,7 +152,9 @@ export default function ChatPage() {
               <div className="text-xs font-semibold mb-1 opacity-60">
                 {m.role === 'user' ? '사용자' : '에이전트'}
               </div>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed">{m.text}</p>
+              {m.role === 'user'
+                ? <p className="text-sm whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                : <MarkdownView text={m.text || (streaming ? '…' : '')} />}
             </div>
           ))}
         </div>

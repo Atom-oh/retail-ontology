@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import * as api from '@/lib/api-client';
+import { MarkdownView } from '@/components/MarkdownView';
 
 const SAMPLE_QUERIES = [
   '지난 4주간 20대 여성에게 검색 빈도가 급증한 성분 Top10',
@@ -90,9 +91,10 @@ export default function InsightsPage() {
 
       {result && (
         <article className="space-y-6">
-          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-            {result.answer_ko}
-          </p>
+          <MarkdownView
+            text={result.answer_ko}
+            className="text-slate-700 dark:text-slate-300"
+          />
 
           <section className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
             <h2 className="text-sm font-semibold mb-4">{result.chart_spec.title}</h2>
