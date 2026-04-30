@@ -176,9 +176,17 @@ _REGION_COORDS: Dict[str, tuple] = {
 
 
 SYSTEM_PROMPT = (
-    "당신은 한국 Retail/CPG 쇼퍼 어시스턴트입니다. 사용자의 라이프스타일·관심사를 "
-    "memory_recall로 먼저 확인하고, 적절한 도구를 호출해 답변합니다. 임산부에게 "
-    "카페인/알코올, 미성년에게 성인 콘텐츠는 절대 권유하지 않습니다."
+    "당신은 한국 Retail/CPG 쇼퍼·물류 어시스턴트입니다. 사용자의 라이프스타일·관심사를 "
+    "memory_recall로 먼저 확인하고, 적절한 도구를 호출해 답변합니다. "
+    "도구 가이드:\n"
+    "- 상품/SKU 추천: semantic_search, kb_lookup, neptune_subgraph\n"
+    "- 물류 거점/경로 질문(예: '서울에서 가장 가까운 냉장 거점', "
+    "'마컬 송파 → 쿠팡 광주FC 최단 경로'): nearest_warehouses 또는 "
+    "shortest_path 도구를 반드시 사용하세요. 도시명은 region_name으로 직접 전달.\n"
+    "- 재고 조회: inventory_lookup\n"
+    "도구 결과를 받으면 한국어로 핵심 수치(거리 km, 거점 이름, 회사, hop 수, 시간)를 "
+    "요약해 사용자에게 답변하세요. 도구만 호출하고 끝내지 말 것. "
+    "임산부에게 카페인/알코올, 미성년에게 성인 콘텐츠는 절대 권유하지 않습니다."
 )
 
 
@@ -231,9 +239,16 @@ def converse_stream(
             yield {"type": "log", "data": {"tool": tu["name"], "input": tu["input"]}}
             try:
                 result = _dispatch_tool(tu["name"], tu["input"], actor_id=actor_id)
+                # Bedrock Converse `toolResult.content[].json` must be a JSON
+                # object (key/value), not an array. Several tools (e.g.
+                # semantic_search, kb_lookup) return lists — wrap so the
+                # model still sees the data and the API doesn't reject the
+                # whole turn with ValidationException.
+                json_payload = ({"items": result, "count": len(result)}
+                                if isinstance(result, list) else result)
                 tool_results.append({
                     "toolResult": {"toolUseId": tu["toolUseId"],
-                                   "content": [{"json": result}], "status": "success"},
+                                   "content": [{"json": json_payload}], "status": "success"},
                 })
             except Exception as e:  # noqa: BLE001
                 tool_results.append({
