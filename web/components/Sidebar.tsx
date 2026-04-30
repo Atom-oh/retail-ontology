@@ -8,6 +8,7 @@ import {
   ShieldCheck, Brain, Activity, Home, ChevronRight, Sparkles,
   UserCheck, ShieldAlert, ArrowLeftRight, BookOpen, GitBranch,
   Building2, MessageCircle, ListTree, Truck, MapPin, Boxes, CalendarClock,
+  UserCircle, Crown, Megaphone, Receipt, Send,
 } from 'lucide-react';
 
 import { SidebarAuth } from './SidebarAuth';
@@ -66,6 +67,12 @@ const SECTIONS: Section[] = [
       { href: '/objects/warehouse',  icon: Boxes,         label: '물류센터 (Warehouse)' },
       { href: '/objects/carrier',    icon: Truck,         label: '운송사 (Carrier)' },
       { href: '/objects/event',      icon: CalendarClock, label: '이벤트 (Event)' },
+      // Membership / marketing layer
+      { href: '/objects/member',      icon: UserCircle,   label: '회원 (Member)' },
+      { href: '/objects/tier',        icon: Crown,        label: '회원등급 (Tier)' },
+      { href: '/objects/campaign',    icon: Megaphone,    label: '캠페인 (Campaign)' },
+      { href: '/objects/transaction', icon: Receipt,      label: '거래 (Transaction)' },
+      { href: '/objects/touchpoint',  icon: Send,         label: '접점 (Touchpoint)' },
     ],
   },
   {

@@ -52,6 +52,12 @@ _CLASSES: List[Dict[str, Any]] = [
     {"label": "Shipment",     "ko": "출하",       "color": "#f59e0b", "domain": "logistics"},
     {"label": "Event",        "ko": "이벤트",     "color": "#ec4899", "domain": "events"},
     {"label": "Inventory",    "ko": "재고",       "color": "#22c55e", "domain": "logistics"},
+    # Membership / marketing layer
+    {"label": "Member",          "ko": "회원",       "color": "#f97316", "domain": "membership"},
+    {"label": "MembershipTier",  "ko": "회원등급",   "color": "#facc15", "domain": "membership"},
+    {"label": "Campaign",        "ko": "캠페인",     "color": "#d946ef", "domain": "membership"},
+    {"label": "Transaction",     "ko": "거래",       "color": "#38bdf8", "domain": "membership"},
+    {"label": "Touchpoint",      "ko": "마케팅 접점","color": "#c084fc", "domain": "membership"},
 ]
 
 _RELATIONS: List[Dict[str, Any]] = [
@@ -84,6 +90,15 @@ _RELATIONS: List[Dict[str, Any]] = [
     {"source": "Event",     "target": "Category",   "label": "AFFECTS_CATEGORY"},
     {"source": "Inventory", "target": "Warehouse",  "label": "HELD_AT"},
     {"source": "Inventory", "target": "Product",    "label": "OF_SKU"},
+    # Membership / marketing
+    {"source": "Member",      "target": "MembershipTier", "label": "BELONGS_TO"},
+    {"source": "Member",      "target": "Persona",        "label": "MATCHES_PERSONA"},
+    {"source": "Member",      "target": "Channel",        "label": "PREFERS_CHANNEL"},
+    {"source": "Member",      "target": "Transaction",    "label": "MADE"},
+    {"source": "Transaction", "target": "Product",        "label": "OF_PRODUCT"},
+    {"source": "Member",      "target": "Touchpoint",     "label": "HAS_TOUCHPOINT"},
+    {"source": "Touchpoint",  "target": "Campaign",       "label": "FROM_CAMPAIGN"},
+    {"source": "Campaign",    "target": "Persona",        "label": "TARGETS"},
 ]
 
 

@@ -162,6 +162,47 @@ _TYPE_REGISTRY: Dict[str, Dict[str, str]] = {
             "RETURN n, oh AS rank_score ORDER BY oh DESC"
         ),
     },
+    # Membership / marketing layer
+    "member": {
+        # Surface highest-churn members first — that's the wow signal.
+        "label": "Member", "id_prop": "member_id", "name_prop": "name_ko",
+        "order_by": (
+            "WITH n, coalesce(n.churn_risk, 0.0) AS risk "
+            "RETURN n, toInteger(risk * 100) AS rank_score "
+            "ORDER BY risk DESC, n.ltv_krw DESC"
+        ),
+    },
+    "tier": {
+        "label": "MembershipTier", "id_prop": "tier_id", "name_prop": "name_ko",
+        "order_by": (
+            "WITH n, coalesce(n.threshold_krw, 0) AS thr "
+            "RETURN n, thr AS rank_score ORDER BY thr ASC"
+        ),
+    },
+    "campaign": {
+        "label": "Campaign", "id_prop": "campaign_id", "name_prop": "name_ko",
+        "order_by": (
+            "OPTIONAL MATCH (n)<-[:FROM_CAMPAIGN]-(tp:Touchpoint) "
+            "WITH n, count(tp) AS reach "
+            "RETURN n, reach AS rank_score ORDER BY n.start DESC"
+        ),
+    },
+    "transaction": {
+        # Transactions have no name; surface most recent / largest first.
+        "label": "Transaction", "id_prop": "transaction_id", "name_prop": "transaction_id",
+        "order_by": (
+            "WITH n, coalesce(n.amount_krw, 0) AS amt "
+            "RETURN n, amt AS rank_score ORDER BY n.ts DESC, amt DESC"
+        ),
+    },
+    "touchpoint": {
+        # Responded touchpoints first — that's the marketing signal.
+        "label": "Touchpoint", "id_prop": "touchpoint_id", "name_prop": "touchpoint_id",
+        "order_by": (
+            "WITH n, CASE WHEN n.responded THEN 1 ELSE 0 END AS r "
+            "RETURN n, r AS rank_score ORDER BY r DESC, n.ts DESC"
+        ),
+    },
 }
 
 

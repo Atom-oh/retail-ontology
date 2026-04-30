@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   Package, FlaskConical, HeartPulse, TrendingUp, Tag, Layers, Users, Store,
   Building2, MessageCircle, MapPin, Boxes, Truck, CalendarClock, PackageOpen,
+  UserCircle, Crown, Megaphone, Receipt, Send,
   Network as NetworkIcon, Search as SearchIcon, ChevronRight,
 } from 'lucide-react';
 
@@ -38,6 +39,12 @@ const TYPE_META: Record<
   carrier:    { ko: '운송사',   desc: 'CJ대한통운·한진·롯데·우체국·쿠팡·판토스·콜드체인', color: '#06b6d4', icon: Truck },
   shipment:   { ko: '출하',     desc: '최근 30일 출하 — route + carrier + SKU 묶음', color: '#f59e0b', icon: PackageOpen },
   event:      { ko: '이벤트',   desc: '명절·날씨·프로모·파업·정전 12건',             color: '#ec4899', icon: CalendarClock },
+  // Membership / marketing layer
+  member:      { ko: '회원',       desc: '1,000명 합성 회원 — RFM 기반 이탈 위험·LTV 산출', color: '#f97316', icon: UserCircle },
+  tier:        { ko: '회원등급',   desc: 'Bronze / Silver / Gold / VIP — LTV 임계값 + 할인율', color: '#facc15', icon: Crown },
+  campaign:    { ko: '캠페인',     desc: 'acquisition / retention / winback — 채널별 캠페인',  color: '#d946ef', icon: Megaphone },
+  transaction: { ko: '거래',       desc: '회원-상품 구매 이력 (~6/회원, ANCHOR 12개월 윈도우)', color: '#38bdf8', icon: Receipt },
+  touchpoint:  { ko: '마케팅 접점', desc: '캠페인 발송·반응 이벤트 — 이메일/푸시/SMS/카카오/방문', color: '#c084fc', icon: Send },
 };
 
 export default function ObjectTypePage({ params }: { params: { type: string } }) {
