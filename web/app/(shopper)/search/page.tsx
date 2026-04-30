@@ -19,20 +19,40 @@ const WOW_QUERIES = [
   '캠핑갈 때 필요한 간편식',
 ];
 
+// Human-readable label + tone for each phase emitted by /api/search/stream.
+// Keeps page logic generic while the API can add/rename phases without UI changes.
+const PHASE_META: Record<string, { label: string; tone: string }> = {
+  bm25:    { label: 'BM25 (Nori 한글)',         tone: 'border-blue-500/40    bg-blue-500/10    text-blue-200' },
+  knn:     { label: 'Cohere embed-v4 KNN',       tone: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' },
+  rrf:     { label: 'RRF fusion',                tone: 'border-amber-500/40   bg-amber-500/10   text-amber-200' },
+  rerank:  { label: 'Bedrock rerank-v3',         tone: 'border-violet-500/40  bg-violet-500/10  text-violet-200' },
+  error:   { label: '오류',                      tone: 'border-rose-500/40    bg-rose-500/10    text-rose-200' },
+};
+
 export default function SearchPage() {
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<api.SearchResponse | null>(null);
+  const [phases, setPhases] = useState<api.SearchPhase[]>([]);
 
   async function runSearch(query: string) {
     setLoading(true);
     setError(null);
     setResult(null);
+    setPhases([]);
+    setQ(query);
     try {
-      const res = await api.search(query, { topK: 10 });
-      setResult(res);
-      setQ(query);
+      await api.searchStream(
+        { q: query, topK: 10 },
+        (event) => {
+          if (event.type === 'phase') {
+            setPhases((p) => [...p, event.data]);
+          } else if (event.type === 'result') {
+            setResult(event.data);
+          }
+        },
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'unknown error');
     } finally {
@@ -77,6 +97,38 @@ export default function SearchPage() {
           </button>
         ))}
       </div>
+
+      {/* Streaming phase progress — visible while the API streams phase
+          events. Disappears once the result event arrives. */}
+      {(loading || phases.length > 0) && !result && (
+        <div className="mb-6 rounded-lg border border-slate-200 dark:border-ink-700 bg-white dark:bg-ink-900 p-3">
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-ink-400 font-semibold mb-2 flex items-center gap-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse-soft" />
+            검색 파이프라인 진행 중 — {phases.length}단계 완료
+          </div>
+          <ol className="flex flex-wrap items-center gap-2">
+            {phases.map((p, i) => {
+              const meta = PHASE_META[p.name] ?? { label: p.name, tone: 'border-slate-500/40 bg-slate-500/10 text-slate-200' };
+              return (
+                <li
+                  key={i}
+                  className={`flex items-center gap-1.5 text-[11px] font-mono px-2 py-1 rounded border ${meta.tone}`}
+                >
+                  <span className="text-[9px] opacity-60">{i + 1}.</span>
+                  <span className="font-semibold">{meta.label}</span>
+                  {p.detail && <span className="opacity-70">— {p.detail}</span>}
+                  {typeof p.ms === 'number' && <span className="opacity-50">·{p.ms}ms</span>}
+                </li>
+              );
+            })}
+            {loading && (
+              <li className="text-[11px] font-mono px-2 py-1 rounded border border-slate-300/30 bg-slate-300/5 text-slate-400 animate-pulse-soft">
+                다음 단계…
+              </li>
+            )}
+          </ol>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-sm">

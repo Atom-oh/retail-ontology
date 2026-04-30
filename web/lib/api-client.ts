@@ -40,6 +40,58 @@ export async function search(
   return res.json();
 }
 
+// SSE streaming variant — emits phase events (bm25 / knn / rrf / rerank)
+// before the final result event so the UI can show progress instead of
+// a blank loading state.
+export type SearchPhase = { name: string; detail?: string; ms?: number };
+export type SearchEvent =
+  | { type: 'phase'; data: SearchPhase }
+  | { type: 'result'; data: SearchResponse };
+
+export async function searchStream(
+  body: { q: string; topK?: number; persona?: string; includeSubgraph?: boolean },
+  onEvent: (event: SearchEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/search/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify({
+      q: body.q,
+      top_k: body.topK ?? 10,
+      persona: body.persona,
+      include_subgraph: body.includeSubgraph ?? true,
+    }),
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error(`search/stream failed: ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split('\n\n');
+    buffer = frames.pop() ?? '';
+    for (const frame of frames) {
+      let type = '';
+      let dataLine = '';
+      for (const line of frame.split('\n')) {
+        if (line.startsWith('event: ')) type = line.slice(7).trim();
+        else if (line.startsWith('data: ')) dataLine = line.slice(6);
+      }
+      if (!type || !dataLine) continue;
+      try {
+        onEvent({ type, data: JSON.parse(dataLine) } as SearchEvent);
+      } catch {
+        /* ignore malformed frames */
+      }
+    }
+  }
+}
+
 export type ChatEvent =
   | { type: 'log'; data: { tool: string; input: unknown } }
   | { type: 'delta'; data: { text: string } }
