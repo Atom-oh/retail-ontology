@@ -307,3 +307,119 @@ export async function tierUpDashboard(topK = 25): Promise<TierUpDashboardRespons
   if (!res.ok) throw new Error(`tier-up dashboard failed: ${res.status} ${await res.text()}`);
   return res.json();
 }
+
+// ─── Wide-scope passthroughs for scenarios D/E/F/G/H + objects + ontology + ops
+//
+// These functions exist to satisfy import-resolution from the untracked
+// scenario pages (web/app/{logistics,match,ops,price,safety,schema,standards,
+// substitute,validation}/...). The Python routers behind them are now all
+// registered in api/main.py (commits 614be82 + 0499324) and return Pydantic-
+// validated payloads. TS shapes are kept `any` here intentionally — adding
+// them would require mirroring ~15 router Pydantic models that may still
+// evolve. The pages access fields via dot-notation; TypeScript's structural
+// typing lets `any` flow through.
+
+export type ObjectListResponse = any;
+export type ObjectDetailResponse = any;
+export type SafetyProfile = any;
+export type SafetyCheckResponse = any;
+export type PersonaListItem = any;
+export type PersonaMatchResponse = any;
+export type SubstituteSampleProduct = any;
+export type SubstituteResponse = any;
+export type PriceCompareResponse = any;
+export type SchemaResponse = any;
+export type StandardsTableResponse = any;
+export type ValidationCheck = any;
+export type ValidationResponse = any;
+export type LogisticsNetworkResponse = any;
+export type LogisticsKpi = any;
+export type WarehouseDetailResponse = any;
+export type InventoryListResponse = any;
+export type IngestStatus = any;
+export type GuardrailResponse = any;
+export type MemorySnapshot = any;
+export type EvalResponse = any;
+export type TraceResponse = any;
+export type CostResponse = any;
+
+async function _get<T = any>(path: string, label: string): Promise<T> {
+  const r = await fetch(`${BASE}${path}`);
+  if (!r.ok) throw new Error(`${label} failed: ${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+async function _post<T = any>(path: string, body: unknown, label: string): Promise<T> {
+  const r = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`${label} failed: ${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+// Object Explorer
+export const listObjects = (type: string, limit = 30) =>
+  _get<ObjectListResponse>(`/api/objects/${encodeURIComponent(type)}?limit=${limit}`, 'listObjects');
+export const getObjectDetail = (type: string, id: string) =>
+  _get<ObjectDetailResponse>(`/api/objects/${encodeURIComponent(type)}/${encodeURIComponent(id)}`, 'getObjectDetail');
+
+// Safety (E)
+export const listSafetyProfiles = () =>
+  _get<SafetyProfile[]>(`/api/safety/profiles`, 'listSafetyProfiles');
+export const safetyCheck = (body: unknown) =>
+  _post<SafetyCheckResponse>(`/api/safety-check`, body, 'safetyCheck');
+
+// Persona match (D)
+export const listPersonas = (limit = 60) =>
+  _get<PersonaListItem[]>(`/api/personas?limit=${limit}`, 'listPersonas');
+export const personaMatch = (body: unknown) =>
+  _post<PersonaMatchResponse>(`/api/persona-match`, body, 'personaMatch');
+
+// Substitute (F)
+export const substituteSamples = (limit = 15) =>
+  _get<SubstituteSampleProduct[]>(`/api/substitute/sample-products?limit=${limit}`, 'substituteSamples');
+export const substitute = (body: unknown) =>
+  _post<SubstituteResponse>(`/api/substitute`, body, 'substitute');
+
+// Price (G)
+export const priceCompare = (body: unknown) =>
+  _post<PriceCompareResponse>(`/api/price/compare`, body, 'priceCompare');
+
+// Ontology (meta)
+export const ontologySchema = () =>
+  _get<SchemaResponse>(`/api/ontology/schema`, 'ontologySchema');
+export const ontologyStandards = () =>
+  _get<{ items: any[] }>(`/api/ontology/standards`, 'ontologyStandards');
+export const ontologyStandardsTable = (filename: string, limit = 500) =>
+  _get<StandardsTableResponse>(`/api/ontology/standards/${encodeURIComponent(filename)}?limit=${limit}`, 'ontologyStandardsTable');
+export const ontologyValidation = () =>
+  _get<ValidationResponse>(`/api/ontology/validation`, 'ontologyValidation');
+
+// Logistics (H)
+export const logisticsNetwork = () =>
+  _get<LogisticsNetworkResponse>(`/api/logistics/network`, 'logisticsNetwork');
+export const logisticsStatus = () =>
+  _get<LogisticsKpi>(`/api/logistics/status`, 'logisticsStatus');
+export const warehouseDetail = (whId: string) =>
+  _get<WarehouseDetailResponse>(`/api/logistics/warehouse/${encodeURIComponent(whId)}`, 'warehouseDetail');
+export const inventoryAtWarehouse = (whId: string, limit = 30) =>
+  _get<InventoryListResponse>(`/api/logistics/inventory/wh/${encodeURIComponent(whId)}?limit=${limit}`, 'inventoryAtWarehouse');
+
+// Ops console
+export const opsIngest = () => _get<IngestStatus>(`/api/ops/ingest`, 'opsIngest');
+export const opsGuardrail = (minutes = 60, limit = 40) =>
+  _get<GuardrailResponse>(`/api/ops/guardrail?minutes=${minutes}&limit=${limit}`, 'opsGuardrail');
+export const opsMemory = (sessionId?: string, topK = 30) => {
+  const qp = sessionId ? `?session_id=${encodeURIComponent(sessionId)}&top_k=${topK}` : `?top_k=${topK}`;
+  return _get<MemorySnapshot>(`/api/ops/memory${qp}`, 'opsMemory');
+};
+export const opsEval = (run = false) =>
+  _get<EvalResponse>(`/api/ops/eval?run=${run}`, 'opsEval');
+export const opsCost = (days = 7) =>
+  _get<CostResponse>(`/api/ops/cost?days=${days}`, 'opsCost');
+export const opsTrace = (limit = 50, sessionId?: string) => {
+  const qp = sessionId ? `?limit=${limit}&session_id=${encodeURIComponent(sessionId)}` : `?limit=${limit}`;
+  return _get<TraceResponse>(`/api/ops/trace${qp}`, 'opsTrace');
+};
