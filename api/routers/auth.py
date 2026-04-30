@@ -15,7 +15,7 @@ import os
 from typing import Optional
 
 import requests
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
 
 router = APIRouter(tags=["auth"])
@@ -40,40 +40,31 @@ REGION = _required_env("AWS_REGION")
 CLIENT_ID = _required_env("COGNITO_USER_POOL_CLIENT_ID")
 COGNITO_DOMAIN = f"{PROJECT}-{ENV_NAME}-{ACCOUNT}.auth.{REGION}.amazoncognito.com"
 
-# Host header allowlist for the OAuth callback. The redirect_uri sent to
-# Cognito's token endpoint is constructed from the request Host header — an
-# attacker-controlled Host (DNS spoof, CloudFront alternate-alias misconfig,
-# direct-to-ALB request bypassing the SG) would otherwise let them craft
-# `redirect_uri=https://evil.example/...` and intercept the auth code.
-#
-# Cognito's token endpoint also rejects redirect_uri mismatches against the
-# Hosted UI's callback allowlist, but this in-app check is the defense-in-depth
-# layer. Multiple comma-separated hosts are supported (e.g. apex + www).
+# `redirect_uri` for the OAuth token exchange must match exactly what was
+# sent during the /authorize redirect AND must be in Cognito's Hosted UI
+# callback allowlist. We derive it from the PUBLIC_DOMAIN env (set by the
+# infra layer) — NOT from the request Host header — for two reasons:
+#   1. CloudFront's Managed-AllViewerExceptHostHeader policy strips Host
+#      before forwarding to ALB, so the API would only ever see the ALB
+#      DNS and Host-based logic would always fail.
+#   2. PUBLIC_DOMAIN comes from the ECS task env (infra-controlled). The
+#      Host header is client-influenced — using it for redirect_uri creation
+#      would expand attack surface (Host spoofing, alternate-alias misconfig,
+#      direct-to-ALB if the SG ever loosens). Defense-in-depth still relies
+#      on Cognito's own redirect_uri allowlist as the second gate.
 PUBLIC_DOMAIN = _required_env("PUBLIC_DOMAIN")
-_ALLOWED_HOSTS = {h.strip().lower() for h in PUBLIC_DOMAIN.split(",") if h.strip()}
-
-
-def _validate_host(host: str) -> str:
-    """Return the host if it matches the allowlist; raise 400 otherwise."""
-    if not host:
-        raise HTTPException(status_code=400, detail="missing Host header")
-    # Strip optional :port (the OAuth callback runs over HTTPS so port is
-    # implied 443; explicit port in Host is uncommon but legal).
-    bare = host.split(":")[0].lower()
-    if bare not in _ALLOWED_HOSTS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Host {bare!r} not in allowlist (PUBLIC_DOMAIN={PUBLIC_DOMAIN!r})",
-        )
-    return bare
+# Multiple comma-separated hosts permitted (e.g. apex + www); first one
+# becomes the canonical redirect target.
+_PRIMARY_DOMAIN = next((h.strip() for h in PUBLIC_DOMAIN.split(",") if h.strip()), "")
+if not _PRIMARY_DOMAIN:
+    raise RuntimeError("PUBLIC_DOMAIN env is empty after parsing")
 
 
 @router.get("/auth/callback")
-def auth_callback(request: Request, code: Optional[str] = None) -> RedirectResponse:
+def auth_callback(code: Optional[str] = None) -> RedirectResponse:
     if not code:
         raise HTTPException(status_code=400, detail="missing code parameter")
-    host = _validate_host(request.headers.get("host", ""))
-    redirect_uri = f"https://{host}/api/auth/callback"
+    redirect_uri = f"https://{_PRIMARY_DOMAIN}/api/auth/callback"
     resp = requests.post(
         f"https://{COGNITO_DOMAIN}/oauth2/token",
         data={
