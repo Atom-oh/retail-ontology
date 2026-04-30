@@ -144,11 +144,45 @@ Haversine k-NN over warehouses with optional type and cold-chain filters.
 
 BFS shortest path over Route edges (depth ≤ 4 — sufficient for the 30-warehouse network). Returns hop-by-hop list with route_id, carrier, distance, transit hours.
 
+## Membership / Marketing (Scenarios I·J·K)
+
+### `GET /api/churn/dashboard?top_k=30`
+
+Scenario I — 이탈 위험 진단. Returns:
+- `summary`: total members, high-risk count (≥0.7), VIP at-risk count, blended high-risk %, avg recency
+- `top_at_risk`: top N members by churn_risk DESC then ltv_krw DESC (defaults to 30, max 100)
+- `tier_breakdown`: per-tier rollup (total / at_risk / avg risk / avg LTV)
+- `persona_breakdown`: per-persona rollup
+- `recommended_winback`: campaigns where `type='winback'` with target personas
+- `subgraph`: 10 highest-risk members + their tier + persona nodes (Cytoscape contract)
+
+### `GET /api/churn/member/{member_id}`
+
+Scenario I drill-down. Returns the member's RFM, last 10 transactions, last 12 touchpoints, response_rate, persona-aware winback recommendation, and a 1-hop subgraph (member + tier + persona + last 5 tx + last 5 tp).
+
+### `GET /api/acquisition/dashboard`
+
+Scenario J — Campaign × Channel × Persona ROI. Returns:
+- `summary`: total acquisition campaigns, total cost, attributed members + LTV, blended ROI, best channel
+- `campaigns`: per-acquisition-campaign ROI (cost / attributed LTV from responded touchpoints)
+- `channels`: per-channel rollup (kakao / push / email / sms)
+- `persona_channel_matrix`: 5×5 cells with response rate per persona × channel, used for the heatmap
+
+Attribution model is single-touch — a touchpoint with `responded=true` counts as attribution. Multi-touch attribution would not earn its keep on a 1k-member PoC.
+
+### `GET /api/tier-up/dashboard?top_k=25`
+
+Scenario K — Silver→Gold lift + upgrade candidates. Returns:
+- `summary`: silver / gold cohort sizes, candidates count, avg candidate LTV
+- `product_lift`: top N products by per-capita Gold-rate ÷ Silver-rate, half-step Laplace smoothed
+- `category_lift`: same for Categories (top 15)
+- `upgrade_candidates`: Silver members with LTV ≥ 1.5M, sorted by gap-to-Gold and surfaced with churn_risk + frequency
+
 ## Knowledge Graph Object Explorer
 
 ### `GET /api/objects/{type}?limit=30`
 
-Type slugs: `product`, `ingredient`, `concern`, `trend`, `brand`, `category`, `persona`, `channel`, `manufacturer`, `review`.
+Type slugs: `product`, `ingredient`, `concern`, `trend`, `brand`, `category`, `persona`, `channel`, `manufacturer`, `review`, `member`, `tier`, `campaign`, `transaction`, `touchpoint`.
 
 Returns ranked list (per-type ordering — products by ingredient count, manufacturers by SKU count, reviews by helpful_count, etc.).
 
