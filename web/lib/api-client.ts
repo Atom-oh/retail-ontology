@@ -199,3 +199,60 @@ export async function churnMember(memberId: string): Promise<ChurnMemberDetailRe
   if (!res.ok) throw new Error(`churn member failed: ${res.status} ${await res.text()}`);
   return res.json();
 }
+
+// ─── Scenario J — Acquisition Channel ROI ──────────────────────────────────
+
+export type CampaignRoi = {
+  campaign_id: string;
+  name_ko: string;
+  channel: string;
+  target_persona_ids: string[];
+  cost_krw: number;
+  sent: number;
+  responded: number;
+  response_rate: number;
+  attributed_members: number;
+  attributed_ltv_krw: number;
+  roi: number;
+};
+
+export type ChannelRoi = {
+  channel: string;
+  sent: number;
+  responded: number;
+  response_rate: number;
+  attributed_members: number;
+  attributed_ltv_krw: number;
+  cost_krw: number;
+  roi: number;
+};
+
+export type PersonaChannelCell = {
+  persona_id: string;
+  persona_label_ko: string;
+  channel: string;
+  sent: number;
+  responded: number;
+  response_rate: number;
+};
+
+export type AcquisitionDashboardResponse = {
+  summary: {
+    total_campaigns: number;
+    total_cost_krw: number;
+    total_attributed_members: number;
+    total_attributed_ltv_krw: number;
+    blended_roi: number;
+    best_channel: string | null;
+    best_channel_roi: number;
+  };
+  campaigns: CampaignRoi[];
+  channels: ChannelRoi[];
+  persona_channel_matrix: PersonaChannelCell[];
+};
+
+export async function acquisitionDashboard(): Promise<AcquisitionDashboardResponse> {
+  const res = await fetch(`${BASE}/api/acquisition/dashboard`);
+  if (!res.ok) throw new Error(`acquisition dashboard failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
