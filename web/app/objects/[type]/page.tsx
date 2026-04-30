@@ -8,6 +8,7 @@ import {
   Building2, MessageCircle, MapPin, Boxes, Truck, CalendarClock, PackageOpen,
   UserCircle, Crown, Megaphone, Receipt, Send,
   Network as NetworkIcon, Search as SearchIcon, ChevronRight,
+  PanelRightClose, PanelRightOpen,
 } from 'lucide-react';
 
 import * as api from '@/lib/api-client';
@@ -58,6 +59,9 @@ export default function ObjectTypePage({ params }: { params: { type: string } })
   const [detail, setDetail] = useState<api.ObjectDetailResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  // Inspector pane is collapsible — when collapsed, the graph spans the
+  // full main width (close to 95% of viewport after the global Sidebar).
+  const [inspectorOpen, setInspectorOpen] = useState(true);
 
   // Load list on type change
   useEffect(() => {
@@ -118,7 +122,14 @@ export default function ObjectTypePage({ params }: { params: { type: string } })
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-1 xl:grid-cols-[340px_1fr_360px] min-h-0">
+      <div
+        className={[
+          'flex-1 grid grid-cols-1 min-h-0',
+          inspectorOpen
+            ? 'xl:grid-cols-[280px_1fr_340px]'
+            : 'xl:grid-cols-[280px_1fr]',
+        ].join(' ')}
+      >
         {/* ────── List pane ────── */}
         <aside className="border-r border-ink-700 bg-ink-900 flex flex-col min-h-0">
           <div className="p-4 border-b border-ink-700 flex items-center gap-3">
@@ -184,7 +195,42 @@ export default function ObjectTypePage({ params }: { params: { type: string } })
         </aside>
 
         {/* ────── Graph canvas (1-hop neighborhood) ────── */}
-        <section className="min-h-[500px] xl:min-h-0 p-4 flex flex-col">
+        <section className="relative min-h-[600px] xl:min-h-0 p-4 flex flex-col">
+          {/* Inspector toggle — top-right of canvas. Toggling collapses the
+              right pane so the graph reflows to fill the freed width. */}
+          <button
+            type="button"
+            onClick={() => setInspectorOpen((v) => !v)}
+            className="absolute top-2 right-2 z-20 px-2.5 py-1 text-xs rounded-md border border-ink-600 bg-ink-800/90 text-ink-200 hover:bg-ink-700 backdrop-blur-sm flex items-center gap-1.5"
+            title={inspectorOpen ? '속성 패널 접기 — 그래프 전체 너비' : '속성 패널 펴기'}
+          >
+            {inspectorOpen ? <PanelRightClose className="w-3.5 h-3.5" /> : <PanelRightOpen className="w-3.5 h-3.5" />}
+            {inspectorOpen ? '속성 접기' : '속성 펴기'}
+          </button>
+
+          {/* Selection breadcrumb above graph — surfaces what the canvas is
+              currently showing without forcing the inspector open. */}
+          {detail && (
+            <div className="mb-2 flex items-center gap-2 text-xs">
+              <span
+                className="px-1.5 py-0.5 rounded font-mono text-[10px] border"
+                style={{ borderColor: `${meta.color}60`, color: meta.color, backgroundColor: `${meta.color}14` }}
+              >
+                {detail.label}
+              </span>
+              <span className="text-ink-100 font-semibold truncate">{detail.name}</span>
+              <span className="font-mono text-[10px] text-ink-500 truncate">{detail.id}</span>
+              {Object.entries(detail.neighbor_summary).slice(0, 6).map(([lbl, cnt]) => (
+                <span
+                  key={lbl}
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-ink-800 text-ink-300 border border-ink-700"
+                >
+                  {lbl} ·{cnt}
+                </span>
+              ))}
+            </div>
+          )}
+
           {detailLoading && (
             <div className="flex-1 flex items-center justify-center text-sm text-ink-400">
               그래프 로딩 중…
@@ -196,7 +242,13 @@ export default function ObjectTypePage({ params }: { params: { type: string } })
             </div>
           )}
           {!detailLoading && detail && (
-            <CytoscapeView subgraph={detail.subgraph} wowNodeIds={[selectedId ?? '']} />
+            <div className="flex-1 min-h-[600px]">
+              <CytoscapeView
+                subgraph={detail.subgraph}
+                wowNodeIds={[selectedId ?? '']}
+                height={Math.max(600, typeof window !== 'undefined' ? window.innerHeight - 240 : 700)}
+              />
+            </div>
           )}
           {!detailLoading && !detail && !detailError && (
             <div className="flex-1 flex items-center justify-center text-sm text-ink-500">
@@ -205,7 +257,8 @@ export default function ObjectTypePage({ params }: { params: { type: string } })
           )}
         </section>
 
-        {/* ────── Inspector pane ────── */}
+        {/* ────── Inspector pane (collapsible) ────── */}
+        {inspectorOpen && (
         <aside className="border-l border-ink-700 bg-ink-900 flex flex-col min-h-0">
           {detail ? (
             <>
@@ -248,6 +301,7 @@ export default function ObjectTypePage({ params }: { params: { type: string } })
             </div>
           )}
         </aside>
+        )}
       </div>
     </div>
   );
