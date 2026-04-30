@@ -8,7 +8,7 @@ import {
   ShieldCheck, Brain, Activity, Home, ChevronRight, Sparkles,
   UserCheck, ShieldAlert, ArrowLeftRight, BookOpen, GitBranch,
   Building2, MessageCircle, ListTree, Truck, MapPin, Boxes, CalendarClock,
-  UserCircle, Crown, Megaphone, Receipt, Send, TrendingDown, Wallet,
+  UserCircle, Crown, Megaphone, Receipt, Send, TrendingDown, Wallet, ArrowUpRight,
 } from 'lucide-react';
 
 import { SidebarAuth } from './SidebarAuth';
@@ -42,6 +42,7 @@ const SECTIONS: Section[] = [
       { href: '/logistics',  icon: Truck,          label: '물류 네트워크',   badge: 'H' },
       { href: '/churn',      icon: TrendingDown,   label: '이탈 위험 진단', badge: 'I' },
       { href: '/acquisition',icon: Wallet,         label: '확보 채널 ROI',  badge: 'J' },
+      { href: '/tier-up',    icon: ArrowUpRight,   label: '등급 상승 경로', badge: 'K' },
     ],
   },
   {

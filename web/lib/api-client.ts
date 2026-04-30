@@ -256,3 +256,54 @@ export async function acquisitionDashboard(): Promise<AcquisitionDashboardRespon
   if (!res.ok) throw new Error(`acquisition dashboard failed: ${res.status} ${await res.text()}`);
   return res.json();
 }
+
+// ─── Scenario K — Tier-up Path ─────────────────────────────────────────────
+
+export type ProductLift = {
+  sku_id: string;
+  name_ko: string;
+  domain: string | null;
+  silver_buyers: number;
+  gold_buyers: number;
+  lift: number;
+};
+
+export type CategoryLift = {
+  gs1_brick_code: string;
+  name_ko: string;
+  silver_buyers: number;
+  gold_buyers: number;
+  lift: number;
+};
+
+export type UpgradeCandidate = {
+  member_id: string;
+  name_ko: string;
+  persona_id: string | null;
+  persona_label_ko: string | null;
+  ltv_krw: number;
+  monetary_krw: number;
+  frequency: number;
+  recency_days: number;
+  gap_to_gold_krw: number;
+  churn_risk: number;
+};
+
+export type TierUpDashboardResponse = {
+  summary: {
+    silver_count: number;
+    gold_count: number;
+    silver_to_gold_ratio: number;
+    candidates_count: number;
+    avg_candidate_ltv_krw: number;
+  };
+  product_lift: ProductLift[];
+  category_lift: CategoryLift[];
+  upgrade_candidates: UpgradeCandidate[];
+};
+
+export async function tierUpDashboard(topK = 25): Promise<TierUpDashboardResponse> {
+  const res = await fetch(`${BASE}/api/tier-up/dashboard?top_k=${topK}`);
+  if (!res.ok) throw new Error(`tier-up dashboard failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
