@@ -374,18 +374,22 @@ export const safetyCheck = (body: unknown) =>
 // Persona match (D)
 export const listPersonas = (limit = 60) =>
   _get<PersonaListItem[]>(`/api/personas?limit=${limit}`, 'listPersonas');
-export const personaMatch = (body: unknown) =>
-  _post<PersonaMatchResponse>(`/api/persona-match`, body, 'personaMatch');
+export const personaMatch = (personaId: string, topK = 10) =>
+  _post<PersonaMatchResponse>(`/api/persona-match`, { persona_id: personaId, top_k: topK }, 'personaMatch');
 
 // Substitute (F)
 export const substituteSamples = (limit = 15) =>
   _get<SubstituteSampleProduct[]>(`/api/substitute/sample-products?limit=${limit}`, 'substituteSamples');
-export const substitute = (body: unknown) =>
-  _post<SubstituteResponse>(`/api/substitute`, body, 'substitute');
+export const substitute = (skuId: string, sameBrandOk = false, topK = 8) =>
+  _post<SubstituteResponse>(`/api/substitute`, { sku_id: skuId, same_brand_ok: sameBrandOk, top_k: topK }, 'substitute');
 
 // Price (G)
-export const priceCompare = (body: unknown) =>
-  _post<PriceCompareResponse>(`/api/price/compare`, body, 'priceCompare');
+export const priceCompare = (q: string, opts: { topK?: number; persona?: string } = {}) =>
+  _post<PriceCompareResponse>(`/api/price/compare`, {
+    q,
+    top_k: opts.topK ?? 3,
+    persona: opts.persona,
+  }, 'priceCompare');
 
 // Ontology (meta)
 export const ontologySchema = () =>
