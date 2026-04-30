@@ -157,3 +157,70 @@ class Channel(BaseModel):
     channel_id: str
     name_ko: str
     type: ChannelType
+
+
+# ─── Membership / Marketing (Phase 2A) ─────────────────────────────────────
+#
+# Adds an individual-member layer beneath the existing 5 Persona archetypes.
+# Powers churn-risk, acquisition-ROI, and tier-up scenarios. RFM (Recency /
+# Frequency / Monetary) is the underlying model — consistent with marketing
+# practice and lets the LLM explain "why this member is at risk."
+
+CampaignType = Literal["acquisition", "retention", "winback"]
+CampaignChannel = Literal["email", "push", "sms", "kakao"]
+TouchpointType = Literal["email", "push", "sms", "kakao", "visit"]
+TierName = Literal["Bronze", "Silver", "Gold", "VIP"]
+
+
+class MembershipTier(BaseModel):
+    tier_id: str
+    name_ko: str
+    name_en: TierName
+    threshold_krw: int
+    discount_rate: float
+
+
+class Member(BaseModel):
+    member_id: str
+    name_ko: str
+    age: int
+    gender: Gender
+    tier: TierName
+    persona_id: Optional[str] = None
+    joined_at: date
+    last_purchase_at: Optional[date] = None
+    recency_days: int
+    frequency: int
+    monetary_krw: int
+    ltv_krw: int
+    churn_risk: float = Field(ge=0.0, le=1.0)
+    primary_channel_id: Optional[str] = None
+
+
+class Campaign(BaseModel):
+    campaign_id: str
+    name_ko: str
+    type: CampaignType
+    channel: CampaignChannel
+    start: date
+    end: date
+    cost_krw: int
+    target_persona_ids: List[str] = Field(default_factory=list)
+
+
+class Transaction(BaseModel):
+    transaction_id: str
+    member_id: str
+    sku_id: str
+    amount_krw: int
+    ts: date
+    channel_id: Optional[str] = None
+
+
+class Touchpoint(BaseModel):
+    touchpoint_id: str
+    member_id: str
+    campaign_id: Optional[str] = None
+    type: TouchpointType
+    ts: date
+    responded: bool = False

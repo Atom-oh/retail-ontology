@@ -261,6 +261,98 @@ def load_neptune() -> Dict[str, int]:
             {"id": r["review_id"], "p": plain, "sid": r["sku_id"], "pid": r["persona_id"]},
         )
     counts["reviews"] = len(items)
+
+    # ─── Membership / Marketing (Phase 2A) ───────────────────────────────
+    # Order: tiers → campaigns (+TARGETS persona) → members (+BELONGS_TO tier,
+    # MATCHES_PERSONA) → transactions (+MADE, OF_PRODUCT) → touchpoints
+    # (+HAS_TOUCHPOINT, FROM_CAMPAIGN). All foreign keys reference entities
+    # already MERGE'd above (Persona, Product, Channel).
+
+    items = load_jsonish(OUTPUT_DIR / "tiers.json")
+    for t in items:
+        neptune_cypher(
+            "MERGE (n:MembershipTier {tier_id: $id}) SET n += $p",
+            {"id": t["tier_id"], "p": _flatten_props({k: v for k, v in t.items() if k != "tier_id"})},
+        )
+    counts["tiers"] = len(items)
+
+    items = load_jsonish(OUTPUT_DIR / "campaigns.json")
+    for c in items:
+        targets = c.get("target_persona_ids", [])
+        plain = _flatten_props({k: v for k, v in c.items() if k not in ("target_persona_ids",)})
+        neptune_cypher(
+            "MERGE (n:Campaign {campaign_id: $id}) SET n += $p",
+            {"id": c["campaign_id"], "p": plain},
+        )
+        for pid in targets:
+            neptune_cypher(
+                "MATCH (cmp:Campaign {campaign_id: $cid}), (per:Persona {persona_id: $pid}) "
+                "MERGE (cmp)-[:TARGETS]->(per)",
+                {"cid": c["campaign_id"], "pid": pid},
+            )
+    counts["campaigns"] = len(items)
+
+    items = load_jsonish(OUTPUT_DIR / "members.json")
+    # Map tier name (Bronze/Silver/Gold/VIP) → tier_id used by MembershipTier nodes
+    _tier_name_to_id = {"Bronze": "tier_bronze", "Silver": "tier_silver",
+                        "Gold": "tier_gold", "VIP": "tier_vip"}
+    for m in items:
+        plain = _flatten_props({k: v for k, v in m.items()
+                                if k not in ("persona_id", "primary_channel_id")})
+        neptune_cypher(
+            "MERGE (n:Member {member_id: $id}) SET n += $p",
+            {"id": m["member_id"], "p": plain},
+        )
+        tier_id = _tier_name_to_id.get(m.get("tier", "Bronze"), "tier_bronze")
+        neptune_cypher(
+            "MATCH (mb:Member {member_id: $mid}), (t:MembershipTier {tier_id: $tid}) "
+            "MERGE (mb)-[:BELONGS_TO]->(t)",
+            {"mid": m["member_id"], "tid": tier_id},
+        )
+        if m.get("persona_id"):
+            neptune_cypher(
+                "MATCH (mb:Member {member_id: $mid}), (per:Persona {persona_id: $pid}) "
+                "MERGE (mb)-[:MATCHES_PERSONA]->(per)",
+                {"mid": m["member_id"], "pid": m["persona_id"]},
+            )
+        if m.get("primary_channel_id"):
+            neptune_cypher(
+                "MATCH (mb:Member {member_id: $mid}) "
+                "MERGE (c:Channel {channel_id: $cid}) "
+                "MERGE (mb)-[:PREFERS_CHANNEL]->(c)",
+                {"mid": m["member_id"], "cid": m["primary_channel_id"]},
+            )
+    counts["members"] = len(items)
+
+    items = load_jsonish(OUTPUT_DIR / "transactions.json")
+    for tx in items:
+        plain = _flatten_props({k: v for k, v in tx.items()
+                                if k not in ("member_id", "sku_id", "channel_id")})
+        neptune_cypher(
+            "MERGE (n:Transaction {transaction_id: $id}) SET n += $p "
+            "WITH n MATCH (mb:Member {member_id: $mid}) MERGE (mb)-[:MADE]->(n) "
+            "WITH n MATCH (p:Product {sku_id: $sid}) MERGE (n)-[:OF_PRODUCT]->(p)",
+            {"id": tx["transaction_id"], "p": plain,
+             "mid": tx["member_id"], "sid": tx["sku_id"]},
+        )
+    counts["transactions"] = len(items)
+
+    items = load_jsonish(OUTPUT_DIR / "touchpoints.json")
+    for tp in items:
+        plain = _flatten_props({k: v for k, v in tp.items()
+                                if k not in ("member_id", "campaign_id")})
+        neptune_cypher(
+            "MERGE (n:Touchpoint {touchpoint_id: $id}) SET n += $p "
+            "WITH n MATCH (mb:Member {member_id: $mid}) MERGE (mb)-[:HAS_TOUCHPOINT]->(n)",
+            {"id": tp["touchpoint_id"], "p": plain, "mid": tp["member_id"]},
+        )
+        if tp.get("campaign_id"):
+            neptune_cypher(
+                "MATCH (n:Touchpoint {touchpoint_id: $id}), (c:Campaign {campaign_id: $cid}) "
+                "MERGE (n)-[:FROM_CAMPAIGN]->(c)",
+                {"id": tp["touchpoint_id"], "cid": tp["campaign_id"]},
+            )
+    counts["touchpoints"] = len(items)
     return counts
 
 
