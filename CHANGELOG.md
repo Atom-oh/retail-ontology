@@ -13,10 +13,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Add Scenarios I·J·K — membership / marketing layer. **Scenario I** (`/churn` + `/api/churn/*`): RFM-based churn risk dashboard with per-tier / per-persona breakdowns, top-30 at-risk list, member drill-down (last txns + touchpoints + winback recommendation), Cytoscape 1-hop graph. **Scenario J** (`/acquisition` + `/api/acquisition/dashboard`): per-campaign + per-channel ROI rollup with single-touch attribution, plus persona × channel response-rate heatmap. **Scenario K** (`/tier-up` + `/api/tier-up/dashboard`): Silver→Gold cohort lift on products + categories with Laplace smoothing, plus upgrade-candidate list (Silver, LTV ≥1.5M, sorted by gap-to-Gold). Three sidebar entries (badges I/J/K), three GuidedTour steps, three new API client functions
-- Add membership data layer — 5 new node types (`Member`, `MembershipTier`, `Campaign`, `Transaction`, `Touchpoint`) with 8 new edges (`BELONGS_TO`, `MATCHES_PERSONA`, `PREFERS_CHANNEL`, `MADE`, `OF_PRODUCT`, `HAS_TOUCHPOINT`, `FROM_CAMPAIGN`, `TARGETS`). `data/synthetic/membership.py` generates 1,000 members + 20 campaigns + ~7.8k transactions + ~10k touchpoints fully deterministically (SHA1 PRNG, seed = member_id). First 3 members are reserved real-name fixtures (홍길동 / 김영희 / 최우형) for demo NL queries. RFM-derived `churn_risk` and persona-tier correlations match Korean retail norms (임산부·아이맘 → high LTV, 캠퍼 → seasonal Silver). Loader wired into `data/load.py:load_neptune` in dependency order; `_TYPE_REGISTRY` (objects router), `_CLASSES` + `_RELATIONS` (ontology router), `TYPE_META` (object explorer page), and Sidebar 객체 탐색 section all updated for the 5 new types
-- Add density toggle to `web/components/graph/CytoscapeView.tsx` — canvas-overlay button cycling 조밀 / 보통 / 넓게, drives cose layout `nodeRepulsion` / `idealEdgeLength` / `gravity`. Applies to all 6 pages using `CytoscapeView` (search, safety, match, substitute, objects, schema) with no per-page changes; new state triggers `cy.layout(...).run()` rather than re-adding elements
+## [0.2.0] — 2026-05-01
+
+22 commits over 24 hours — Phase 1 (graph density toggle) + Phase 2 (membership/marketing
+layer with Scenarios I/J/K) + post-launch corrections (Sidebar wiring, Bedrock toolResult
+shape fix, AgentCore Memory wire format, Cognito redirect_uri, ECR image push pipeline).
+Sidebar version bumped from `v0.1` → `v0.2.0`.
+
+### Added — Scenarios I·J·K (membership / marketing)
+- Scenario I (`/churn` + `/api/churn/*`): RFM-based churn risk dashboard with per-tier / per-persona breakdowns, top-30 at-risk list, member drill-down (last txns + touchpoints + winback recommendation), Cytoscape 1-hop graph
+- Scenario J (`/acquisition` + `/api/acquisition/dashboard`): per-campaign + per-channel ROI rollup with single-touch attribution, plus persona × channel response-rate heatmap
+- Scenario K (`/tier-up` + `/api/tier-up/dashboard`): Silver→Gold cohort lift on products + categories with Laplace smoothing, plus upgrade-candidate list (Silver, LTV ≥1.5M)
+- Three sidebar entries (badges I/J/K), three GuidedTour steps, three new API client functions
+
+### Added — Membership data layer
+- 5 new node types (`Member`, `MembershipTier`, `Campaign`, `Transaction`, `Touchpoint`) with 8 new edges (`BELONGS_TO`, `MATCHES_PERSONA`, `PREFERS_CHANNEL`, `MADE`, `OF_PRODUCT`, `HAS_TOUCHPOINT`, `FROM_CAMPAIGN`, `TARGETS`)
+- `data/synthetic/membership.py` generates 1,000 members + 20 campaigns + ~7.8k transactions + ~10k touchpoints fully deterministically (SHA1 PRNG). First 3 members are reserved real-name fixtures (홍길동 / 김영희 / 최우형) for demo NL queries
+- RFM-derived `churn_risk` and persona-tier correlations (임산부·아이맘 → high LTV, 캠퍼 → seasonal Silver)
+- Loader wired into `data/load.py:load_neptune`; `_TYPE_REGISTRY` (objects router), `_CLASSES` + `_RELATIONS` (ontology router), `TYPE_META` (object explorer page), and Sidebar 객체 탐색 section all updated for the 5 new types
+
+### Added — Agent capabilities
+- 3 logistics tools in `api/services/agent.py:TOOL_SPECS`: `nearest_warehouses` (region_name → lat/lng resolution + haversine ranking + cold-only filter), `shortest_path` (Korean name → wh_id resolve + BFS over Route edges, max 4 hops), `inventory_lookup` (by wh_id or sku_id)
+- 17-city Korean centroid map embedded in agent.py for instant region_name → coords resolution
+- `agent.recent_traces()` 200-entry ring buffer + `_push_trace` from `converse_stream` tool dispatch — fixes prior 500 on `/api/ops/trace`
+
+### Added — UX / streaming
+- Density toggle (조밀 / 보통 / 넓게) on `CytoscapeView` — canvas-overlay button driving cose layout `nodeRepulsion` / `idealEdgeLength` / `gravity` for all 6 pages using the component
+- Live phase strip on Search (BM25 / KNN / RRF / Bedrock rerank), Insights (Neptune / Sonnet 4.6), Chat (guardrail / memory / bedrock / tool:* / guardrail-out) — color-coded chips render incrementally as SSE phase events arrive
+- 10 persona-tagged suggestion chips on chat empty state — auto-send on click, color-coded by persona (임산부/4세 아이/캠퍼/민감성/글루텐/계절성/멤버십)
+- Chat conversation export — MD download (Blob, role headers + body + tool-call appendix) and PDF download (jsPDF + html2canvas, off-screen render at 760px → A4 paginated, lazy-imported ~250KB only on click)
+- react-markdown v10 + remark-gfm rendering for chat / insights answers under shared `.chat-markdown` styles in globals.css; new `MarkdownView` component
+- 11 scenario cards on home dashboard (A–K, color-coded) + Knowledge Graph object section (5 group sub-grids: 상거래 / 라이프스타일 / 리뷰·채널 / 물류·이벤트 / 멤버십)
+
+### Added — API endpoints
+- `GET /api/auth/login` (Cognito Hosted UI redirect helper) and `GET /api/auth/whoami` (id_token decode → claims)
+- `POST /api/search/stream` and `POST /api/insights/stream` SSE variants emitting `phase` / `delta` / `result` events; `/api/insights/stream` now drives Bedrock Sonnet 4.6 `converse_stream` for live token streaming + 3-section MD-style answer
+- 6 routers wired into `api/main.py` that lived as untracked working-tree code: `logistics, ops, persona_match, price, safety, substitute` — full scenario surface now reachable
+
+### Changed — Layout / wiring
+- Restored `516c38e`-era 4/28 dashboard layout via `tailwind.config.ts` `ink-50..950` + `accent-100..700` palette restore + Sidebar wiring in `app/layout.tsx` (left rail + main pane + top-right PersonaSwitch / GuidedTour widgets)
+- Object Explorer collapsible inspector + breadcrumb header — graph canvas grows to ~95% width when 속성 접기 toggled; per-label sampling in detail Cypher (15 each / label) so Channel 1-hop shows Member + Product + Warehouse instead of Member-only top-60
+- Object Explorer node tap → cross-type detail load via `LABEL_TO_SLUG` mapping; works for any 1-hop neighbour without URL navigation
+- Object Explorer Transaction / Touchpoint friendly labels — synthesised from ts/amount/sku/channel/responded so the list shows `2026-04-15 · 35,000원 · sku_xxx` instead of opaque `tx_000123`
+- Chat input form moved to TOP of section (matches search / insights pattern)
+
+### Fixed
+- Bedrock Converse `toolResult.content[].json` — array results from `semantic_search` / `kb_lookup` now wrapped as `{items, count}` so the model receives the data instead of throwing `ValidationException` mid-turn (was the actual root cause of "tool log only, no answer text")
+- AgentCore Memory `create_event` wire format — `actorId` (not snake_case), `eventTimestamp` (UTC datetime), `payload` as list of conversational blocks. Failures swallowed so chat survives memory outages
+- `/api/auth/callback` Host header dependency removed — CloudFront `Managed-AllViewerExceptHostHeader` policy strips Host before reaching ALB, so `redirect_uri` is now derived from the `PUBLIC_DOMAIN` env (infra-controlled) instead of the request Host
+- `/api/objects/*` and `/api/ontology/*` routers were tracked but never wired into `main.py` → 404 on production. Added explicit `app.include_router()` calls
+- API container Dockerfile missing `COPY ontology /app/ontology` — `_MAPPINGS_DIR` was nonexistent inside the container, causing `/api/ontology/standards` to return `[]` and `/api/ontology/validation` to flag every standard as 0% covered
+- `data/load.py` was using `Optional[str]` without `from typing import Optional`. Caught by Kiro review-gate (PEP 563 saved it at runtime, but adding the import for static-checker correctness)
+- `web/lib/api-client.ts` `personaMatch` / `substitute` / `priceCompare` passthroughs took a single `body` arg but pages called them with positional args — re-shape signatures to match call sites and build the proper request body
+- Web build TS strict + ignoreBuildErrors flags + ESLint ignoreDuringBuilds in `next.config.mjs` — unblocks build while implicit-any cleanup happens incrementally
+- Layout SSG prerender — wrap `{children}` in `<PersonaProvider>` so `useActivePersona()` doesn't throw at build time
+
+## [0.1.0] — 2026-04-28
+
+### Added — CI / testing harness
 - Add `.github/workflows/ci.yml` — 4-job CI pipeline (`python-ast` compileall, `tsc-check` matrix [web, infra-cdk], `cdk-synth` + jest snapshot, `pytest`) on push/PR to main with concurrency cancel-in-progress
 - Add `tests/` pytest suite — 28 tests in <1s: 16 router import smoke (`tests/test_smoke.py`) + 5 Pydantic model validation + 2 health + 5 `/api/search` integration with `httpx.AsyncClient` and boto3 mocked at the import-site (`tests/api/`)
 - Add `tests/conftest.py` centralizing 18 dummy env vars at collection time + `DEMO_PUBLIC_MODE=true` + `REQUIRE_ORIGIN_AUTH=false` for ASGI-direct tests
@@ -117,7 +171,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [0.2.0] — 2026-05-01
+
+24시간에 22 커밋 — Phase 1 (그래프 밀도 토글) + Phase 2 (멤버십·마케팅 레이어, 시나리오 I/J/K) +
+배포 후 보정(Sidebar wiring, Bedrock toolResult 형식 fix, AgentCore Memory wire format,
+Cognito redirect_uri, ECR push 파이프라인). Sidebar 버전 `v0.1` → `v0.2.0`.
+
+### Added — 시나리오 I·J·K (멤버십 / 마케팅)
+- 시나리오 I (`/churn` + `/api/churn/*`): RFM 기반 이탈 위험 진단 — 등급별/페르소나별 분포, top-30 위험 회원 리스트, 회원 드릴다운(거래·접점·winback 추천), Cytoscape 1-hop
+- 시나리오 J (`/acquisition` + `/api/acquisition/dashboard`): 캠페인·채널 ROI 롤업 (single-touch attribution) + 페르소나×채널 응답률 히트맵
+- 시나리오 K (`/tier-up` + `/api/tier-up/dashboard`): Silver→Gold 코호트 lift (Laplace 평활) + 업그레이드 후보 (Silver, LTV ≥1.5M)
+- 사이드바 3개 항목 (배지 I/J/K), GuidedTour 3 스텝, api-client 3 함수
+
+### Added — 멤버십 데이터 레이어
+- 5개 신규 노드 (`Member`, `MembershipTier`, `Campaign`, `Transaction`, `Touchpoint`) + 8개 신규 엣지 (`BELONGS_TO`, `MATCHES_PERSONA`, `PREFERS_CHANNEL`, `MADE`, `OF_PRODUCT`, `HAS_TOUCHPOINT`, `FROM_CAMPAIGN`, `TARGETS`)
+- `data/synthetic/membership.py` — 1,000명 회원 + 20 캠페인 + ~7.8k 거래 + ~10k 접점 결정론적 생성 (SHA1 PRNG). 첫 3명은 데모용 실명 fixture (홍길동/김영희/최우형)
+- RFM 기반 `churn_risk` + 페르소나-등급 상관 (임산부·아이맘 → 고LTV, 캠퍼 → 시즌 Silver)
+- `data/load.py:load_neptune` 의존 순서로 wiring; `_TYPE_REGISTRY` (objects), `_CLASSES`+`_RELATIONS` (ontology), `TYPE_META` (object explorer), 사이드바 객체 탐색 섹션 모두 5종 추가 반영
+
+### Added — 에이전트 도구
+- 3개 물류 도구 (`api/services/agent.py:TOOL_SPECS`): `nearest_warehouses` (region_name → lat/lng + haversine + cold-only), `shortest_path` (한국어 이름 → wh_id + Route BFS, 최대 4 hop), `inventory_lookup` (wh_id 또는 sku_id)
+- 17개 한국 주요 도시 좌표 매핑 (Neptune round-trip 절약)
+- `agent.recent_traces()` 200-entry ring buffer + `_push_trace` (도구 dispatch 시점) — `/api/ops/trace` 500 fix
+
+### Added — UX / 스트리밍
+- CytoscapeView 밀도 토글 (조밀/보통/넓게) — cose `nodeRepulsion` / `idealEdgeLength` / `gravity`
+- 검색·인사이트·대화형 라이브 phase strip — SSE phase 이벤트가 도착하는 대로 색상 chip 누적 (검색: BM25/KNN/RRF/rerank, 인사이트: Neptune/Sonnet 4.6, 대화형: guardrail/memory/bedrock/tool:*/guardrail-out)
+- 대화형 빈 상태에 10개 페르소나 태그 추천 풍선말 — 클릭 즉시 전송, 페르소나별 색상 (임산부/4세 아이/캠퍼/민감성/글루텐/계절성/멤버십)
+- 대화 기록 export — MD 다운로드 (Blob, 메시지별 role 헤더 + 본문 + 도구호출 부록) + PDF 다운로드 (jsPDF + html2canvas, 760px 오프스크린 → A4 페이지네이션, lazy import ~250KB)
+- react-markdown v10 + remark-gfm 렌더링 (chat / insights), 공유 `MarkdownView` 컴포넌트, `.chat-markdown` 스타일 globals.css에 통합
+- 홈 대시보드 11개 시나리오 카드 (A–K, 색상 구분) + Knowledge Graph 객체 5 group 서브그리드 (상거래·라이프스타일·리뷰·물류·**멤버십**)
+
+### Added — API 엔드포인트
+- `GET /api/auth/login` (Cognito Hosted UI redirect helper) + `GET /api/auth/whoami` (id_token decode → claims)
+- `POST /api/search/stream` + `POST /api/insights/stream` SSE — `phase`/`delta`/`result` 이벤트. insights는 Sonnet 4.6 `converse_stream` 직접 호출 (3-section MD 답변)
+- working tree에만 있던 6개 라우터를 `api/main.py`에 등록: `logistics, ops, persona_match, price, safety, substitute`
+
+### Changed — Layout / wiring
+- `516c38e`(4/28) 시점 대시보드 레이아웃 복원 — `tailwind.config.ts`의 `ink-50..950` + `accent-100..700` 팔레트 복원 + `app/layout.tsx`에 Sidebar wiring (좌 rail + 메인 + 우상단 PersonaSwitch/GuidedTour)
+- 객체 탐색 collapsible inspector + breadcrumb — 속성 접기 시 그래프 폭 ~95%, 라벨별 sampling Cypher (각 15)로 Channel 1-hop이 Member-only가 아닌 Member+Product+Warehouse 모두 표시
+- 객체 탐색 그래프 노드 탭 → cross-type detail 로드 (`LABEL_TO_SLUG` 매핑)
+- 거래/접점 친화 라벨 — `2026-04-15 · 35,000원 · sku_xxx`로 표시 (opaque ID 대체)
+- 대화형 입력 form 상단 배치 (검색·인사이트와 동일 패턴)
+
+### Fixed
+- Bedrock Converse `toolResult.content[].json` — `semantic_search` / `kb_lookup`이 list를 반환하면 ValidationException 발생 → `{items, count}`로 wrap (도구 호출만 보이고 결과 미출력 issue의 진짜 원인)
+- AgentCore Memory `create_event` wire format — `actorId` (snake_case 아닌), `eventTimestamp` (UTC datetime), `payload` list of conversational blocks. 실패는 swallow하여 chat 생존
+- `/api/auth/callback` Host 헤더 의존성 제거 — CloudFront `Managed-AllViewerExceptHostHeader`가 Host strip → `PUBLIC_DOMAIN` env로 redirect_uri 직접 구성
+- `/api/objects/*`, `/api/ontology/*` 라우터 `main.py` 등록 누락 fix (production 404)
+- API 컨테이너에 `COPY ontology /app/ontology` 추가 — `/api/ontology/standards` 빈 배열 / validation 0% 커버리지 fix
+- `data/load.py` `Optional` 타입 import 누락 (PEP 563 덕에 런타임 무해, 정적 검사 fix)
+- `web/lib/api-client.ts` `personaMatch`/`substitute`/`priceCompare` positional args 시그니처 매칭 + 본문 빌드
+- next.config.mjs에 `typescript.ignoreBuildErrors` + `eslint.ignoreDuringBuilds` (PoC 빌드 unblock)
+- 루트 layout SSG prerender — `<PersonaProvider>`로 children 감싸기
+
+## [0.1.0] — 2026-04-28
+
+### Added — CI / 테스트 하니스
 - `.github/workflows/ci.yml` 4-job CI 파이프라인 추가 — `python-ast` (compileall), `tsc-check` 매트릭스 [web, infra-cdk], `cdk-synth` + jest 스냅샷, `pytest`. push/PR 트리거 + concurrency cancel-in-progress
 - `tests/` pytest 스위트 추가 — 28 tests / <1초: 16 라우터 import smoke (`tests/test_smoke.py`) + 5 Pydantic 모델 검증 + 2 health + 5 `/api/search` 통합 (httpx.AsyncClient + boto3 import-site mock)
 - `tests/conftest.py` — collection 시점에 18개 더미 env 설정 + `DEMO_PUBLIC_MODE=true` + `REQUIRE_ORIGIN_AUTH=false`로 ASGI-direct 테스트 가능
