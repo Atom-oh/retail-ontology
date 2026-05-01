@@ -48,6 +48,19 @@ const TYPE_META: Record<
   touchpoint:  { ko: '마케팅 접점', desc: '캠페인 발송·반응 이벤트 — 이메일/푸시/SMS/카카오/방문', color: '#c084fc', icon: Send },
 };
 
+// Neptune label (graph-side, "Persona") → URL slug ("persona") so a tap
+// on a 1-hop neighbour can fetch detail for that node regardless of which
+// type the page is currently scoped to.
+const LABEL_TO_SLUG: Record<string, string> = {
+  Product: 'product', Ingredient: 'ingredient', Concern: 'concern',
+  Trend: 'trend', Brand: 'brand', Category: 'category', Persona: 'persona',
+  Channel: 'channel', Manufacturer: 'manufacturer', Review: 'review',
+  Region: 'region', Warehouse: 'warehouse', Carrier: 'carrier',
+  Shipment: 'shipment', Event: 'event', Inventory: 'inventory',
+  Member: 'member', MembershipTier: 'tier', Campaign: 'campaign',
+  Transaction: 'transaction', Touchpoint: 'touchpoint',
+};
+
 export default function ObjectTypePage({ params }: { params: { type: string } }) {
   const meta = TYPE_META[params.type] ?? { ko: params.type, desc: '', color: '#94a3b8', icon: NetworkIcon };
   const Icon = meta.icon;
@@ -56,6 +69,10 @@ export default function ObjectTypePage({ params }: { params: { type: string } })
   const [listError, setListError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Loaded detail can come from the current type (list selection) or
+  // from any 1-hop neighbour the user taps in the graph. The slug stored
+  // here drives which type-meta is shown in the inspector header.
+  const [detailSlug, setDetailSlug] = useState<string>(params.type);
   const [detail, setDetail] = useState<api.ObjectDetailResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -73,17 +90,36 @@ export default function ObjectTypePage({ params }: { params: { type: string } })
     return () => { cancelled = true; };
   }, [params.type]);
 
-  // Load detail when selection changes
+  // Reset detailSlug whenever the URL type changes — list selection
+  // always uses the URL type for the detail call.
+  useEffect(() => {
+    setDetailSlug(params.type);
+  }, [params.type]);
+
+  // Load detail when selection changes — uses detailSlug (which can be
+  // params.type for list selection OR a different slug for graph-tap
+  // navigation to a connected node of another type).
   useEffect(() => {
     if (!selectedId) { setDetail(null); return; }
     let cancelled = false;
     setDetailLoading(true); setDetailError(null); setDetail(null);
-    api.getObjectDetail(params.type, selectedId)
+    api.getObjectDetail(detailSlug, selectedId)
       .then((d) => { if (!cancelled) setDetail(d); })
       .catch((e) => { if (!cancelled) setDetailError(e instanceof Error ? e.message : 'detail failed'); })
       .finally(() => { if (!cancelled) setDetailLoading(false); });
     return () => { cancelled = true; };
-  }, [params.type, selectedId]);
+  }, [detailSlug, selectedId]);
+
+  // Cytoscape tap → load detail for the tapped node by mapping its
+  // Neptune label to the url slug. If we can't map (unknown label),
+  // fall back to the current page type so at least the same-type case
+  // works seamlessly.
+  function handleNodeTap(id: string, label: string | undefined) {
+    const slug = (label && LABEL_TO_SLUG[label]) || params.type;
+    setDetailSlug(slug);
+    setSelectedId(id);
+    if (!inspectorOpen) setInspectorOpen(true);
+  }
 
   // Auto-select first item once list arrives
   useEffect(() => {
@@ -170,7 +206,7 @@ export default function ObjectTypePage({ params }: { params: { type: string } })
               return (
                 <li key={it.id}>
                   <button
-                    onClick={() => setSelectedId(it.id)}
+                    onClick={() => { setDetailSlug(params.type); setSelectedId(it.id); }}
                     className={[
                       'w-full text-left px-4 py-2.5 border-b border-ink-700/40 transition',
                       active
@@ -196,40 +232,43 @@ export default function ObjectTypePage({ params }: { params: { type: string } })
 
         {/* ────── Graph canvas (1-hop neighborhood) ────── */}
         <section className="relative min-h-[600px] xl:min-h-0 p-4 flex flex-col">
-          {/* Inspector toggle — top-right of canvas. Toggling collapses the
-              right pane so the graph reflows to fill the freed width. */}
-          <button
-            type="button"
-            onClick={() => setInspectorOpen((v) => !v)}
-            className="absolute top-2 right-2 z-20 px-2.5 py-1 text-xs rounded-md border border-ink-600 bg-ink-800/90 text-ink-200 hover:bg-ink-700 backdrop-blur-sm flex items-center gap-1.5"
-            title={inspectorOpen ? '속성 패널 접기 — 그래프 전체 너비' : '속성 패널 펴기'}
-          >
-            {inspectorOpen ? <PanelRightClose className="w-3.5 h-3.5" /> : <PanelRightOpen className="w-3.5 h-3.5" />}
-            {inspectorOpen ? '속성 접기' : '속성 펴기'}
-          </button>
-
-          {/* Selection breadcrumb above graph — surfaces what the canvas is
-              currently showing without forcing the inspector open. */}
-          {detail && (
-            <div className="mb-2 flex items-center gap-2 text-xs">
-              <span
-                className="px-1.5 py-0.5 rounded font-mono text-[10px] border"
-                style={{ borderColor: `${meta.color}60`, color: meta.color, backgroundColor: `${meta.color}14` }}
-              >
-                {detail.label}
-              </span>
-              <span className="text-ink-100 font-semibold truncate">{detail.name}</span>
-              <span className="font-mono text-[10px] text-ink-500 truncate">{detail.id}</span>
-              {Object.entries(detail.neighbor_summary).slice(0, 6).map(([lbl, cnt]) => (
+          {/* Toolbar row — breadcrumb on the left, inspector toggle on the
+              right. Inline (not absolute-positioned) so the button doesn't
+              overlap with the cytoscape canvas's own density toggle and
+              clicks always reach React, not the cytoscape stacking context. */}
+          <div className="mb-2 flex items-center gap-2 text-xs flex-wrap">
+            {detail ? (
+              <>
                 <span
-                  key={lbl}
-                  className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-ink-800 text-ink-300 border border-ink-700"
+                  className="px-1.5 py-0.5 rounded font-mono text-[10px] border"
+                  style={{ borderColor: `${meta.color}60`, color: meta.color, backgroundColor: `${meta.color}14` }}
                 >
-                  {lbl} ·{cnt}
+                  {detail.label}
                 </span>
-              ))}
-            </div>
-          )}
+                <span className="text-ink-100 font-semibold truncate">{detail.name}</span>
+                <span className="font-mono text-[10px] text-ink-500 truncate">{detail.id}</span>
+                {Object.entries(detail.neighbor_summary).slice(0, 6).map(([lbl, cnt]) => (
+                  <span
+                    key={lbl}
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-ink-800 text-ink-300 border border-ink-700"
+                  >
+                    {lbl} ·{cnt}
+                  </span>
+                ))}
+              </>
+            ) : (
+              <span className="text-ink-500 italic">객체를 선택하세요</span>
+            )}
+            <button
+              type="button"
+              onClick={() => setInspectorOpen((v) => !v)}
+              className="ml-auto px-2.5 py-1 text-xs rounded-md border border-ink-600 bg-ink-800 text-ink-200 hover:bg-ink-700 hover:border-accent-500/60 flex items-center gap-1.5"
+              title={inspectorOpen ? '속성 패널 접기 — 그래프 전체 너비' : '속성 패널 펴기'}
+            >
+              {inspectorOpen ? <PanelRightClose className="w-3.5 h-3.5" /> : <PanelRightOpen className="w-3.5 h-3.5" />}
+              {inspectorOpen ? '속성 접기' : '속성 펴기'}
+            </button>
+          </div>
 
           {detailLoading && (
             <div className="flex-1 flex items-center justify-center text-sm text-ink-400">
@@ -247,6 +286,7 @@ export default function ObjectTypePage({ params }: { params: { type: string } })
                 subgraph={detail.subgraph}
                 wowNodeIds={[selectedId ?? '']}
                 height={Math.max(600, typeof window !== 'undefined' ? window.innerHeight - 240 : 700)}
+                onNodeTap={handleNodeTap}
               />
             </div>
           )}

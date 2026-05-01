@@ -292,6 +292,25 @@ def _resolve_name(props: Dict[str, Any], primary: str) -> str:
     if isinstance(body, str) and body.strip():
         excerpt = body.strip().replace("\n", " ")
         return (excerpt[:57] + "…") if len(excerpt) > 60 else excerpt
+    # Transactions / Touchpoints have no name_ko by design — synthesize a
+    # human label from the most informative properties so the list shows
+    # "2026-04-15 · 35,000원 · sku_abc123" instead of just "tx_000123".
+    if props.get("transaction_id"):
+        ts = str(props.get("ts") or "")
+        amt = props.get("amount_krw")
+        sku = str(props.get("sku_id") or "")
+        amt_str = f"{int(amt):,}원" if isinstance(amt, (int, float)) else ""
+        parts = [s for s in (ts[:10], amt_str, sku) if s]
+        if parts:
+            return " · ".join(parts)
+    if props.get("touchpoint_id"):
+        ts = str(props.get("ts") or "")
+        ch = str(props.get("type") or "")
+        responded = props.get("responded")
+        resp_str = "응답" if responded is True else ("미응답" if responded is False else "")
+        parts = [s for s in (ts[:10], ch, resp_str) if s]
+        if parts:
+            return " · ".join(parts)
     # Last resort: surface the canonical ID rather than "(unnamed)".
     for id_key in ("ingredient_id", "gs1_brick_code", "persona_id",
                    "channel_id", "brand_id", "concern_id", "trend_id", "sku_id",
@@ -410,11 +429,20 @@ def object_detail(slug: str, obj_id: str) -> ObjectDetailResponse:
     # blow up the Cytoscape canvas — cap rows to 60 (neighbor, relation)
     # pairs before collect(). For all other types this LIMIT is well above
     # actual fan-out and acts as a safety net.
+    # Per-label sampling — without diversification, a node with 1000 Member
+    # edges + 250 Product edges + 4 Tier edges would return only the first
+    # 60 (all Members), making the subgraph look one-dimensional. We bucket
+    # neighbours by their primary label and take up to 15 from each bucket
+    # so every relationship type the node has is visible in the canvas.
     cypher = (
         f"MATCH (n:{spec['label']} {{{spec['id_prop']}: $oid}}) "
         "OPTIONAL MATCH (n)-[r]-(neighbor) "
-        "WITH n, neighbor, r LIMIT 60 "
-        "WITH n, collect(DISTINCT neighbor) AS neighbors, collect(DISTINCT r) AS edges "
+        "WITH n, labels(neighbor)[0] AS lbl, neighbor, r "
+        "WITH n, lbl, collect({neighbor: neighbor, r: r}) AS items "
+        "WITH n, lbl, items[..15] AS sampled "
+        "UNWIND sampled AS s "
+        "WITH n, collect(DISTINCT s.neighbor) AS neighbors, "
+        "     collect(DISTINCT s.r) AS edges "
         "RETURN n, neighbors, edges, size(neighbors) AS neighbor_count"
     )
     rows = neptune.open_cypher(cypher, parameters={"oid": obj_id})

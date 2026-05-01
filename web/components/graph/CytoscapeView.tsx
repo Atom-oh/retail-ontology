@@ -87,11 +87,14 @@ const ONTOLOGY_STYLE: cytoscape.StylesheetStyle[] = [
 ];
 
 export function CytoscapeView({
-  subgraph, wowNodeIds = [], height = 400,
+  subgraph, wowNodeIds = [], height = 400, onNodeTap,
 }: {
   subgraph: Subgraph;
   wowNodeIds?: string[];
   height?: number;
+  // Fired when the user taps a node. Lets the parent re-load detail
+  // for the clicked node (1-hop neighbour navigation).
+  onNodeTap?: (id: string, label: string | undefined) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
@@ -140,7 +143,20 @@ export function CytoscapeView({
         }
       });
     }
-  }, [elements, wowNodeIds, density]);
+    // Bind tap on nodes — re-bind every render so the parent's onNodeTap
+    // closure is fresh. removeListener('tap') would also remove tap on
+    // edges/canvas, so use a namespaced event.
+    if (cyRef.current) {
+      cyRef.current.off('tap.objExplorer', 'node');
+      if (onNodeTap) {
+        cyRef.current.on('tap.objExplorer', 'node', (evt) => {
+          const id = evt.target.id();
+          const label = evt.target.data('label');
+          onNodeTap(id, typeof label === 'string' ? label : undefined);
+        });
+      }
+    }
+  }, [elements, wowNodeIds, density, onNodeTap]);
 
   useEffect(() => () => {
     cyRef.current?.destroy();
