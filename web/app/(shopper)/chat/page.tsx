@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Download, FileText, Printer } from 'lucide-react';
+import { Download, FileText } from 'lucide-react';
 
 import * as api from '@/lib/api-client';
 import { MarkdownView } from '@/components/MarkdownView';
@@ -147,77 +147,129 @@ export default function ChatPage() {
     URL.revokeObjectURL(url);
   }
 
-  // PDF via browser print: open a new window with a clean printable
-  // body, then call window.print(). User selects "Save as PDF" in the
-  // dialog. Korean fonts inherit from the OS so no embedding issue.
-  // DOM is built node-by-node (no innerHTML / document.write) so user
-  // text is safe from injection.
-  function printPdf() {
+  // Direct PDF download via jsPDF + html2canvas. Build a printable
+  // container off-screen, capture as canvas (Korean OS fonts render as
+  // pixels — no font embedding needed), paginate into A4 pages, save.
+  // Dynamic import keeps the 200KB+ pdf libs out of the initial bundle.
+  async function downloadPdf() {
     if (messages.length === 0) return;
-    const w = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
-    if (!w) return;
-    const doc = w.document;
-    doc.documentElement.setAttribute('lang', 'ko');
+    const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+      import('jspdf'),
+      import('html2canvas'),
+    ]);
 
-    const head = doc.head;
-    const meta = doc.createElement('meta'); meta.setAttribute('charset', 'utf-8'); head.appendChild(meta);
-    const title = doc.createElement('title'); title.textContent = `대화 기록 — ${sessionId}`; head.appendChild(title);
-    const style = doc.createElement('style');
-    style.textContent =
-      `body { font-family: 'Noto Sans KR', system-ui, sans-serif; padding: 32px 40px; color: #111; background: #fff; max-width: 760px; margin: 0 auto; line-height: 1.65; } ` +
-      `h1 { font-size: 18px; border-bottom: 2px solid #444; padding-bottom: 6px; margin: 0 0 16px; } ` +
-      `h2 { font-size: 13px; margin: 18px 0 6px; color: #444; } ` +
-      `pre { white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; line-height: 1.6; background: #f6f7f9; padding: 10px 12px; border-radius: 6px; } ` +
-      `.msg { margin: 10px 0 18px; padding: 10px 14px; border: 1px solid #d8dbe1; border-radius: 8px; } ` +
-      `.role-user { background: #eef3fc; } ` +
-      `.role-asst { background: #fafbfc; } ` +
-      `.role-label { font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; } ` +
-      `.tools { font-size: 11px; color: #555; margin-top: 6px; } ` +
-      `.tools code { background: #eef0f3; padding: 0 4px; border-radius: 3px; }`;
-    head.appendChild(style);
+    const host = document.createElement('div');
+    // Off-screen but laid out at a deterministic width so html2canvas
+    // captures consistent pixel dimensions across viewports.
+    host.style.position = 'fixed';
+    host.style.left = '-10000px';
+    host.style.top = '0';
+    host.style.width = '760px';
+    host.style.padding = '24px 28px';
+    host.style.background = '#ffffff';
+    host.style.color = '#111';
+    host.style.fontFamily = "'Noto Sans KR', system-ui, sans-serif";
+    host.style.fontSize = '13px';
+    host.style.lineHeight = '1.65';
 
-    const body = doc.body;
-    const h1 = doc.createElement('h1'); h1.textContent = `대화 기록 — ${sessionId}`; body.appendChild(h1);
-    const meta1 = doc.createElement('div');
-    meta1.style.fontSize = '12px'; meta1.style.color = '#666'; meta1.style.marginBottom = '14px';
-    meta1.textContent = `추출 ${new Date().toISOString().slice(0, 19).replace('T', ' ')} · 메시지 ${messages.length}`;
-    body.appendChild(meta1);
+    const h1 = document.createElement('h1');
+    h1.textContent = `대화 기록 — ${sessionId}`;
+    h1.style.fontSize = '18px';
+    h1.style.borderBottom = '2px solid #444';
+    h1.style.paddingBottom = '6px';
+    h1.style.margin = '0 0 12px';
+    host.appendChild(h1);
+
+    const meta = document.createElement('div');
+    meta.style.fontSize = '11px'; meta.style.color = '#666'; meta.style.marginBottom = '14px';
+    meta.textContent = `추출 ${new Date().toISOString().slice(0, 19).replace('T', ' ')} · 메시지 ${messages.length}`;
+    host.appendChild(meta);
 
     messages.forEach((m, i) => {
-      const wrap = doc.createElement('div');
-      wrap.className = `msg ${m.role === 'user' ? 'role-user' : 'role-asst'}`;
-      const lbl = doc.createElement('div');
-      lbl.className = 'role-label';
+      const wrap = document.createElement('div');
+      wrap.style.margin = '8px 0 14px';
+      wrap.style.padding = '10px 14px';
+      wrap.style.border = '1px solid #d8dbe1';
+      wrap.style.borderRadius = '8px';
+      wrap.style.background = m.role === 'user' ? '#eef3fc' : '#fafbfc';
+      wrap.style.pageBreakInside = 'avoid';
+
+      const lbl = document.createElement('div');
+      lbl.style.fontSize = '10px'; lbl.style.fontWeight = '700';
+      lbl.style.color = '#666'; lbl.style.textTransform = 'uppercase';
+      lbl.style.letterSpacing = '0.05em'; lbl.style.marginBottom = '4px';
       lbl.textContent = `${i + 1}. ${m.role === 'user' ? '사용자' : '에이전트'}`;
       wrap.appendChild(lbl);
-      const pre = doc.createElement('pre');
-      pre.textContent = m.text || '(빈 메시지)';   // textContent escapes injection
-      wrap.appendChild(pre);
+
+      const body = document.createElement('div');
+      body.style.whiteSpace = 'pre-wrap';
+      body.style.wordBreak = 'break-word';
+      body.style.fontSize = '12.5px';
+      body.style.lineHeight = '1.6';
+      body.textContent = m.text || '(빈 메시지)';
+      wrap.appendChild(body);
+
       if (m.role === 'assistant' && m.toolLogs && m.toolLogs.length > 0) {
-        const tools = doc.createElement('div');
-        tools.className = 'tools';
-        const summary = doc.createElement('div');
+        const tools = document.createElement('div');
+        tools.style.fontSize = '10px'; tools.style.color = '#555';
+        tools.style.marginTop = '6px';
+        const summary = document.createElement('div');
         summary.textContent = `도구 호출 ${m.toolLogs.length}건:`;
         tools.appendChild(summary);
-        const ul = doc.createElement('ul');
+        const ul = document.createElement('ul');
         ul.style.margin = '4px 0 0 18px'; ul.style.padding = '0';
         m.toolLogs.forEach((t) => {
-          const li = doc.createElement('li');
-          const name = doc.createElement('strong'); name.textContent = t.tool;
+          const li = document.createElement('li');
+          const name = document.createElement('strong'); name.textContent = t.tool;
           li.appendChild(name);
-          const code = doc.createElement('code');
-          code.textContent = ' ' + JSON.stringify(t.input);
+          const code = document.createElement('span');
+          code.style.fontFamily = 'ui-monospace, Menlo, monospace';
+          code.style.fontSize = '10.5px';
+          code.style.background = '#eef0f3';
+          code.style.padding = '0 3px';
+          code.style.borderRadius = '2px';
+          code.style.marginLeft = '4px';
+          code.textContent = JSON.stringify(t.input);
           li.appendChild(code);
           ul.appendChild(li);
         });
         tools.appendChild(ul);
         wrap.appendChild(tools);
       }
-      body.appendChild(wrap);
+      host.appendChild(wrap);
     });
 
-    // Trigger print after DOM is settled. Some browsers need a tick.
-    w.setTimeout(() => { w.focus(); w.print(); }, 250);
+    document.body.appendChild(host);
+    try {
+      const canvas = await html2canvas(host, {
+        scale: 2,                 // sharper for high-DPI screens / print zoom
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+      });
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      // Paginate — slot the same image at offset position over multiple
+      // pages. jsPDF clips by page, so each addPage shows the next slice.
+      let heightLeft = imgHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      while (heightLeft > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      pdf.save(`chat-${sessionId.replace('sess_', '')}-${Date.now()}.pdf`);
+    } finally {
+      host.remove();
+    }
   }
 
   return (
@@ -242,11 +294,11 @@ export default function ChatPage() {
               </button>
               <button
                 type="button"
-                onClick={printPdf}
+                onClick={downloadPdf}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-300 transition"
-                title="브라우저 인쇄 대화상자에서 'PDF로 저장' 선택"
+                title="대화 기록을 .pdf 파일로 다운로드 (한글 OS 폰트)"
               >
-                <Printer className="w-3.5 h-3.5" /> PDF
+                <Download className="w-3.5 h-3.5" /> PDF
               </button>
             </div>
           )}
