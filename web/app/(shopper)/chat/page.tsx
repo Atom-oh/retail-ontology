@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { Download, FileText, Printer } from 'lucide-react';
 
 import * as api from '@/lib/api-client';
 import { MarkdownView } from '@/components/MarkdownView';
@@ -99,13 +100,157 @@ export default function ChatPage() {
     }
   }
 
+  // ─── Export helpers ────────────────────────────────────────────────────
+
+  function buildMarkdown(): string {
+    const stamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    const lines: string[] = [
+      `# 대화형 에이전트 대화 기록`,
+      ``,
+      `- 세션: \`${sessionId}\``,
+      `- 추출: ${stamp}`,
+      `- 메시지 수: ${messages.length}`,
+      ``,
+      `---`,
+      ``,
+    ];
+    messages.forEach((m, i) => {
+      lines.push(`## ${i + 1}. ${m.role === 'user' ? '사용자' : '에이전트'}`);
+      lines.push('');
+      lines.push(m.text || '_(빈 메시지)_');
+      lines.push('');
+      if (m.role === 'assistant' && m.toolLogs && m.toolLogs.length > 0) {
+        lines.push(`<details><summary>도구 호출 ${m.toolLogs.length}건</summary>`);
+        lines.push('');
+        m.toolLogs.forEach((t) => {
+          lines.push(`- **${t.tool}** \`${JSON.stringify(t.input)}\``);
+        });
+        lines.push('');
+        lines.push(`</details>`);
+        lines.push('');
+      }
+    });
+    return lines.join('\n');
+  }
+
+  function downloadMarkdown() {
+    if (messages.length === 0) return;
+    const md = buildMarkdown();
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-${sessionId.replace('sess_', '')}-${Date.now()}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // PDF via browser print: open a new window with a clean printable
+  // body, then call window.print(). User selects "Save as PDF" in the
+  // dialog. Korean fonts inherit from the OS so no embedding issue.
+  // DOM is built node-by-node (no innerHTML / document.write) so user
+  // text is safe from injection.
+  function printPdf() {
+    if (messages.length === 0) return;
+    const w = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
+    if (!w) return;
+    const doc = w.document;
+    doc.documentElement.setAttribute('lang', 'ko');
+
+    const head = doc.head;
+    const meta = doc.createElement('meta'); meta.setAttribute('charset', 'utf-8'); head.appendChild(meta);
+    const title = doc.createElement('title'); title.textContent = `대화 기록 — ${sessionId}`; head.appendChild(title);
+    const style = doc.createElement('style');
+    style.textContent =
+      `body { font-family: 'Noto Sans KR', system-ui, sans-serif; padding: 32px 40px; color: #111; background: #fff; max-width: 760px; margin: 0 auto; line-height: 1.65; } ` +
+      `h1 { font-size: 18px; border-bottom: 2px solid #444; padding-bottom: 6px; margin: 0 0 16px; } ` +
+      `h2 { font-size: 13px; margin: 18px 0 6px; color: #444; } ` +
+      `pre { white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; line-height: 1.6; background: #f6f7f9; padding: 10px 12px; border-radius: 6px; } ` +
+      `.msg { margin: 10px 0 18px; padding: 10px 14px; border: 1px solid #d8dbe1; border-radius: 8px; } ` +
+      `.role-user { background: #eef3fc; } ` +
+      `.role-asst { background: #fafbfc; } ` +
+      `.role-label { font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; } ` +
+      `.tools { font-size: 11px; color: #555; margin-top: 6px; } ` +
+      `.tools code { background: #eef0f3; padding: 0 4px; border-radius: 3px; }`;
+    head.appendChild(style);
+
+    const body = doc.body;
+    const h1 = doc.createElement('h1'); h1.textContent = `대화 기록 — ${sessionId}`; body.appendChild(h1);
+    const meta1 = doc.createElement('div');
+    meta1.style.fontSize = '12px'; meta1.style.color = '#666'; meta1.style.marginBottom = '14px';
+    meta1.textContent = `추출 ${new Date().toISOString().slice(0, 19).replace('T', ' ')} · 메시지 ${messages.length}`;
+    body.appendChild(meta1);
+
+    messages.forEach((m, i) => {
+      const wrap = doc.createElement('div');
+      wrap.className = `msg ${m.role === 'user' ? 'role-user' : 'role-asst'}`;
+      const lbl = doc.createElement('div');
+      lbl.className = 'role-label';
+      lbl.textContent = `${i + 1}. ${m.role === 'user' ? '사용자' : '에이전트'}`;
+      wrap.appendChild(lbl);
+      const pre = doc.createElement('pre');
+      pre.textContent = m.text || '(빈 메시지)';   // textContent escapes injection
+      wrap.appendChild(pre);
+      if (m.role === 'assistant' && m.toolLogs && m.toolLogs.length > 0) {
+        const tools = doc.createElement('div');
+        tools.className = 'tools';
+        const summary = doc.createElement('div');
+        summary.textContent = `도구 호출 ${m.toolLogs.length}건:`;
+        tools.appendChild(summary);
+        const ul = doc.createElement('ul');
+        ul.style.margin = '4px 0 0 18px'; ul.style.padding = '0';
+        m.toolLogs.forEach((t) => {
+          const li = doc.createElement('li');
+          const name = doc.createElement('strong'); name.textContent = t.tool;
+          li.appendChild(name);
+          const code = doc.createElement('code');
+          code.textContent = ' ' + JSON.stringify(t.input);
+          li.appendChild(code);
+          ul.appendChild(li);
+        });
+        tools.appendChild(ul);
+        wrap.appendChild(tools);
+      }
+      body.appendChild(wrap);
+    });
+
+    // Trigger print after DOM is settled. Some browsers need a tick.
+    w.setTimeout(() => { w.focus(); w.print(); }, 250);
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-6 py-8 grid lg:grid-cols-[1fr_360px] gap-6">
       <section className="flex flex-col h-[calc(100vh-180px)]">
-        <h1 className="text-2xl font-bold">시나리오 B · 대화형 에이전트</h1>
-        <p className="text-sm text-slate-500 mb-4">
-          AgentCore Memory + Bedrock Converse tool-use. 우측 패널에 도구 호출이 실시간 표시됩니다.
-        </p>
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold">시나리오 B · 대화형 에이전트</h1>
+            <p className="text-sm text-slate-500 mb-4">
+              AgentCore Memory + Bedrock Converse tool-use. 우측 패널에 도구 호출이 실시간 표시됩니다.
+            </p>
+          </div>
+          {messages.length > 0 && (
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                type="button"
+                onClick={downloadMarkdown}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-300 transition"
+                title="대화 기록을 .md 파일로 다운로드"
+              >
+                <FileText className="w-3.5 h-3.5" /> MD
+              </button>
+              <button
+                type="button"
+                onClick={printPdf}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-300 transition"
+                title="브라우저 인쇄 대화상자에서 'PDF로 저장' 선택"
+              >
+                <Printer className="w-3.5 h-3.5" /> PDF
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Suggested prompts — clickable chips that auto-send. Hidden once
             the conversation has started so the chat history isn't cluttered. */}

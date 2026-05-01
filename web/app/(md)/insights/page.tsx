@@ -12,21 +12,42 @@ const SAMPLE_QUERIES = [
   '시카 케어 라인 경쟁 브랜드 분석',
 ];
 
+// Human-readable label + tone for each phase emitted by /api/insights/stream.
+const PHASE_META: Record<string, { label: string; tone: string }> = {
+  neptune: { label: 'Neptune Trend ↔ Ingredient 집계', tone: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' },
+  bedrock: { label: 'Sonnet 4.6 분석',                   tone: 'border-orange-500/40 bg-orange-500/10 text-orange-200' },
+  error:   { label: '오류',                              tone: 'border-rose-500/40 bg-rose-500/10 text-rose-200' },
+};
+
 export default function InsightsPage() {
   const [q, setQ] = useState('');
   const [period, setPeriod] = useState(28);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<api.InsightsResponse | null>(null);
+  const [phases, setPhases] = useState<api.InsightsPhase[]>([]);
+  const [streamingText, setStreamingText] = useState('');
 
   async function run(query: string, days = period) {
     setLoading(true);
     setError(null);
     setResult(null);
+    setPhases([]);
+    setStreamingText('');
+    setQ(query);
     try {
-      const res = await api.insights(query, days);
-      setResult(res);
-      setQ(query);
+      await api.insightsStream(
+        { q: query, periodDays: days },
+        (event) => {
+          if (event.type === 'phase') {
+            setPhases((p) => [...p, event.data]);
+          } else if (event.type === 'delta') {
+            setStreamingText((t) => t + event.data.text);
+          } else if (event.type === 'result') {
+            setResult(event.data);
+          }
+        },
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'unknown error');
     } finally {
@@ -82,6 +103,44 @@ export default function InsightsPage() {
           </button>
         ))}
       </div>
+
+      {/* Streaming phase strip + live token preview */}
+      {(loading || phases.length > 0) && !result && (
+        <div className="mb-6 rounded-lg border border-slate-200 dark:border-ink-700 bg-white dark:bg-ink-900 p-3 space-y-3">
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-ink-400 font-semibold flex items-center gap-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse-soft" />
+            인사이트 파이프라인 진행 중 — {phases.length}단계 완료
+          </div>
+          <ol className="flex flex-wrap items-center gap-2">
+            {phases.map((p, i) => {
+              const meta = PHASE_META[p.name] ?? { label: p.name, tone: 'border-slate-500/40 bg-slate-500/10 text-slate-200' };
+              return (
+                <li
+                  key={i}
+                  className={`flex items-center gap-1.5 text-[11px] font-mono px-2 py-1 rounded border ${meta.tone}`}
+                >
+                  <span className="text-[9px] opacity-60">{i + 1}.</span>
+                  <span className="font-semibold">{meta.label}</span>
+                  {p.detail && <span className="opacity-70">— {p.detail}</span>}
+                </li>
+              );
+            })}
+            {loading && (
+              <li className="text-[11px] font-mono px-2 py-1 rounded border border-slate-300/30 bg-slate-300/5 text-slate-400 animate-pulse-soft">
+                다음 단계…
+              </li>
+            )}
+          </ol>
+          {streamingText && (
+            <div className="border-t border-slate-200 dark:border-ink-700 pt-3">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-ink-400 font-semibold mb-1.5">
+                Sonnet 4.6 토큰 스트리밍
+              </div>
+              <MarkdownView text={streamingText} className="text-slate-700 dark:text-slate-300" />
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-sm">

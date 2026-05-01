@@ -163,6 +163,51 @@ export async function insights(q: string, periodDays = 28): Promise<InsightsResp
   return res.json();
 }
 
+export type InsightsPhase = { name: string; detail?: string };
+export type InsightsEvent =
+  | { type: 'phase'; data: InsightsPhase }
+  | { type: 'delta'; data: { text: string } }
+  | { type: 'result'; data: InsightsResponse };
+
+export async function insightsStream(
+  body: { q: string; periodDays?: number },
+  onEvent: (event: InsightsEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/insights/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify({ q: body.q, period_days: body.periodDays ?? 28 }),
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error(`insights/stream failed: ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split('\n\n');
+    buffer = frames.pop() ?? '';
+    for (const frame of frames) {
+      let type = '';
+      let dataLine = '';
+      for (const line of frame.split('\n')) {
+        if (line.startsWith('event: ')) type = line.slice(7).trim();
+        else if (line.startsWith('data: ')) dataLine = line.slice(6);
+      }
+      if (!type || !dataLine) continue;
+      try {
+        onEvent({ type, data: JSON.parse(dataLine) } as InsightsEvent);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
 // ─── Scenario I — Churn Risk Diagnosis ─────────────────────────────────────
 
 export type AtRiskMember = {
