@@ -38,12 +38,32 @@ const PERSONA_TONE: Record<string, string> = {
   '멤버십':       'border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-200',
 };
 
+// Phase chip palette — guardrail bookends + bedrock rounds + per-tool
+// stages. Unknown phases (e.g. dynamic tool names) fall through to slate.
+const PHASE_META: Record<string, { label: string; tone: string }> = {
+  guardrail:     { label: '입력 가드레일',         tone: 'border-rose-500/40   bg-rose-500/10   text-rose-200' },
+  memory:        { label: '메모리 저장',           tone: 'border-cyan-500/40   bg-cyan-500/10   text-cyan-200' },
+  bedrock:       { label: 'Sonnet 4.6 추론',        tone: 'border-orange-500/40 bg-orange-500/10 text-orange-200' },
+  'guardrail-out': { label: '응답 가드레일',       tone: 'border-rose-500/40   bg-rose-500/10   text-rose-200' },
+};
+
+function phaseToneFor(name: string): { label: string; tone: string } {
+  if (PHASE_META[name]) return PHASE_META[name];
+  // Tool phase chips share an emerald tone — distinguishes them from the
+  // bedrock/guardrail bookends without exploding the palette.
+  if (name.startsWith('tool:')) {
+    return { label: name.replace('tool:', '🔧 '), tone: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' };
+  }
+  return { label: name, tone: 'border-slate-500/40 bg-slate-500/10 text-slate-200' };
+}
+
 export default function ChatPage() {
   const [sessionId] = useState(() => `sess_${crypto.randomUUID()}`);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [toolLog, setToolLog] = useState<{ tool: string; input: unknown }[]>([]);
+  const [phases, setPhases] = useState<api.ChatPhase[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
   // Single entry point used by both the input box and the suggested-prompt
@@ -57,6 +77,7 @@ export default function ChatPage() {
     setInput('');
     setStreaming(true);
     setToolLog([]);
+    setPhases([]);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -67,7 +88,9 @@ export default function ChatPage() {
       await api.chatStream(
         { session_id: sessionId, message: trimmed },
         (event) => {
-          if (event.type === 'log') {
+          if (event.type === 'phase') {
+            setPhases((p) => [...p, event.data]);
+          } else if (event.type === 'log') {
             sessionToolLogs.push(event.data);
             setToolLog((logs) => [...logs, event.data]);
           } else if (event.type === 'delta') {
@@ -304,6 +327,59 @@ export default function ChatPage() {
           )}
         </div>
 
+        {/* Input form — placed at the top so the layout matches the
+            search and insights pages (form / chips / progress / output). */}
+        <form
+          onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
+          className="flex gap-2 mb-3"
+        >
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={streaming}
+            placeholder="메시지를 입력하세요"
+            className="flex-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || streaming}
+            className="px-5 py-2 rounded-lg bg-brand-600 text-white disabled:bg-slate-300 hover:bg-brand-500 transition"
+          >
+            {streaming ? '응답 중…' : '전송'}
+          </button>
+        </form>
+
+        {/* Streaming phase strip — visible while the agent is working,
+            collapsed once the stop event arrives. */}
+        {(streaming || phases.length > 0) && (
+          <div className="mb-4 rounded-lg border border-slate-200 dark:border-ink-700 bg-white dark:bg-ink-900 p-3">
+            <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-ink-400 font-semibold mb-2 flex items-center gap-2">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse-soft" />
+              에이전트 진행 중 — {phases.length}단계
+            </div>
+            <ol className="flex flex-wrap items-center gap-2">
+              {phases.map((p, i) => {
+                const meta = phaseToneFor(p.name);
+                return (
+                  <li
+                    key={i}
+                    className={`flex items-center gap-1.5 text-[11px] font-mono px-2 py-1 rounded border ${meta.tone}`}
+                  >
+                    <span className="text-[9px] opacity-60">{i + 1}.</span>
+                    <span className="font-semibold">{meta.label}</span>
+                    {p.detail && <span className="opacity-70">— {p.detail}</span>}
+                  </li>
+                );
+              })}
+              {streaming && (
+                <li className="text-[11px] font-mono px-2 py-1 rounded border border-slate-300/30 bg-slate-300/5 text-slate-400 animate-pulse-soft">
+                  다음 단계…
+                </li>
+              )}
+            </ol>
+          </div>
+        )}
+
         {/* Suggested prompts — clickable chips that auto-send. Hidden once
             the conversation has started so the chat history isn't cluttered. */}
         {messages.length === 0 && (
@@ -336,7 +412,7 @@ export default function ChatPage() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto space-y-4 mb-3 pr-2">
+        <div className="flex-1 overflow-y-auto space-y-4 pr-2">
           {messages.map((m, i) => (
             <div
               key={i}
@@ -355,26 +431,6 @@ export default function ChatPage() {
             </div>
           ))}
         </div>
-
-        <form
-          onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
-          className="flex gap-2"
-        >
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={streaming}
-            placeholder="메시지를 입력하세요"
-            className="flex-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || streaming}
-            className="px-5 py-2 rounded-lg bg-brand-600 text-white disabled:bg-slate-300 hover:bg-brand-500 transition"
-          >
-            {streaming ? '응답 중…' : '전송'}
-          </button>
-        </form>
       </section>
 
       <aside className="border-l border-slate-200 dark:border-slate-700 pl-4">

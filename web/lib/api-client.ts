@@ -92,7 +92,9 @@ export async function searchStream(
   }
 }
 
+export type ChatPhase = { name: string; detail?: string };
 export type ChatEvent =
+  | { type: 'phase'; data: ChatPhase }
   | { type: 'log'; data: { tool: string; input: unknown } }
   | { type: 'delta'; data: { text: string } }
   | { type: 'guardrail'; data: { action: string } }

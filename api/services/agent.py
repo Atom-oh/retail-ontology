@@ -200,17 +200,22 @@ def converse_stream(
       - "stop": end of response
     """
     s = get_settings()
+    yield {"type": "phase", "data": {"name": "guardrail", "detail": "입력 가드레일 검사"}}
     safe_msg, intervened = guardrails.apply(user_message, source="INPUT")
     if intervened:
         yield {"type": "guardrail", "data": {"action": "input_scrub"}}
 
     memory.save_event(session_id, {"role": "user", "text": safe_msg, "actor_id": actor_id})
+    yield {"type": "phase", "data": {"name": "memory", "detail": "사용자 메시지 저장"}}
 
     history: List[Dict[str, Any]] = [
         {"role": "user", "content": [{"text": safe_msg}]},
     ]
 
-    for _ in range(8):  # max tool-use rounds
+    for round_idx in range(8):  # max tool-use rounds
+        yield {"type": "phase", "data": {
+            "name": "bedrock", "detail": f"Sonnet 4.6 추론 (round {round_idx + 1})",
+        }}
         resp = bedrock_runtime().converse(
             modelId=s.bedrock_chat_model_id,
             system=[{"text": SYSTEM_PROMPT}],
@@ -236,6 +241,7 @@ def converse_stream(
                 session_id=session_id, actor_id=actor_id,
                 tool=tu["name"], input_=tu.get("input") or {},
             )
+            yield {"type": "phase", "data": {"name": f"tool:{tu['name']}", "detail": "도구 실행"}}
             yield {"type": "log", "data": {"tool": tu["name"], "input": tu["input"]}}
             try:
                 result = _dispatch_tool(tu["name"], tu["input"], actor_id=actor_id)
@@ -261,6 +267,7 @@ def converse_stream(
         b["text"] for m in history if m["role"] == "assistant"
         for b in m["content"] if "text" in b
     )
+    yield {"type": "phase", "data": {"name": "guardrail-out", "detail": "응답 가드레일 검사"}}
     safe_out, _ = guardrails.apply(final_text, source="OUTPUT")
     memory.save_event(session_id, {"role": "assistant", "text": safe_out})
     yield {"type": "stop", "data": {"final": safe_out}}
